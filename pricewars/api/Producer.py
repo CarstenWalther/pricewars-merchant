@@ -2,6 +2,7 @@ from typing import List
 
 from .PricewarsBaseApi import PricewarsBaseApi
 from pricewars.models import Product
+from pricewars.models import ProductInfo
 from pricewars.models import Order
 
 
@@ -15,9 +16,9 @@ class Producer(PricewarsBaseApi):
         r = self.request('post', 'orders', data={'amount': amount})
         return Order.from_dict(r.json())
 
-    def get_products(self) -> List[Product]:
+    def get_products(self) -> List[ProductInfo]:
         r = self.request('get', 'products')
-        return Product.from_list(r.json())
+        return ProductInfo.from_list(r.json())
 
     def add_products(self, products: List[Product]):
         product_dict_list = [p.to_dict() for p in products]
@@ -27,9 +28,9 @@ class Producer(PricewarsBaseApi):
         product_dict_list = [p.to_dict() for p in products]
         self.request('put', 'products', json=product_dict_list)
 
-    def get_product(self, product_uid) -> Product:
+    def get_product(self, product_uid) -> ProductInfo:
         r = self.request('get', 'products/{}'.format(product_uid))
-        return Product.from_dict(r.json())
+        return ProductInfo.from_dict(r.json())
 
     def add_product(self, product: Product):
         self.request('post', 'products', json=product.to_dict())
