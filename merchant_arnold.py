@@ -5,6 +5,7 @@ import time
 from pricewars import MerchantServer
 from pricewars.api import Marketplace, Producer
 from pricewars.models import SoldOffer
+from pricewars.models import Offer
 
 
 class ArnoldMerchant:
@@ -13,10 +14,20 @@ class ArnoldMerchant:
 
         self.marketplace = Marketplace(marketplace_url)
         self.marketplace.wait_for_host()
-        response = self.marketplace.register(endpoint_url_or_port=port, merchant_name='Arnold', algorithm_name='ss policy')
+        response = self.marketplace.register(endpoint_url_or_port=port, merchant_name='Arnold',
+                                             algorithm_name='ss policy')
         self.merchant_id = response.merchant_id
         self.token = response.merchant_token
         self.producer = Producer(self.token, producer_url)
+
+        self.inventory = 0
+        self.selling_price = 30
+        self.lower_limit = 10
+        self.upper_limit = 50
+        self.shipping_time = {
+            'standard': 5,
+            'prime': 1
+        }
 
     def setup_server(self, port):
         server = MerchantServer(self)
@@ -28,13 +39,23 @@ class ArnoldMerchant:
     def update(self):
         print('update')
 
+        if self.inventory < self.lower_limit:
+            order_quantity = self.upper_limit - self.inventory
+            print('order', order_quantity, 'units')
+            order = self.producer.order(order_quantity)
+            product = order.product
+            offer = Offer.from_product(product, self.selling_price, self.shipping_time)
+            offer = self.marketplace.add_offer(offer)
+            self.inventory += offer.amount
+
     def run(self):
         while True:
             self.update()
             time.sleep(1)
 
     def sold_offer(self, offer: SoldOffer):
-        pass
+        self.inventory -= offer.amount_sold
+        print('bought', offer.amount_sold, 'available', self.inventory)
 
     def get_state(self) -> str:
         return 'running'
