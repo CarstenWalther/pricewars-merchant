@@ -7,7 +7,7 @@ merchant_id = r.merchant_id
 token = r.merchant_token
 print('token', token)
 
-producer = Producer(token, debug=True)
+producer = Producer(token)
 print(producer.get_products())
 order = producer.order(1000)
 print(order)
