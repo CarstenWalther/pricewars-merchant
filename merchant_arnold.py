@@ -37,8 +37,6 @@ class ArnoldMerchant:
         return thread
 
     def update(self):
-        print('update')
-
         if self.inventory < self.lower_limit:
             order_quantity = self.upper_limit - self.inventory
             print('order', order_quantity, 'units')
