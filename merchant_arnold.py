@@ -1,11 +1,16 @@
 import argparse
 import threading
 import time
+import requests
 
 from pricewars import MerchantServer
 from pricewars.api import Marketplace, Producer
 from pricewars.models import SoldOffer
 from pricewars.models import Offer
+
+
+def calculate_order_quantity(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute):
+    return round((2 * demand_per_minute * fixed_order_cost / holding_cost_per_unit_per_minute) ** 0.5)
 
 
 class ArnoldMerchant:
@@ -15,15 +20,24 @@ class ArnoldMerchant:
         self.marketplace = Marketplace(marketplace_url)
         self.marketplace.wait_for_host()
         response = self.marketplace.register(endpoint_url_or_port=port, merchant_name='Arnold',
-                                             algorithm_name='ss policy')
+                                             algorithm_name='economic order quantity')
         self.merchant_id = response.merchant_id
         self.token = response.merchant_token
         self.producer = Producer(self.token, producer_url)
 
         self.inventory = 0
         self.selling_price = 30
-        self.lower_limit = 10
-        self.upper_limit = 50
+
+        # customer behavior is known
+        demand_per_minute = 60
+        # only one product can be bought in this scenario
+        fixed_order_cost = self.producer.get_products()[0].fixed_order_cost
+        # merchant should not be able to change his inventory price
+        # but for convenience set the price here
+        requests.put('http://marketplace:8080/holding_cost_rate', json={'rate': 5, 'merchant_id': self.merchant_id})
+        holding_cost_per_unit_per_minute = 5 #self.marketplace.inventory_price()
+        self.order_quantity = calculate_order_quantity(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute)
+        print(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute, self.order_quantity)
         self.shipping_time = {
             'standard': 5,
             'prime': 1
@@ -37,10 +51,9 @@ class ArnoldMerchant:
         return thread
 
     def update(self):
-        if self.inventory < self.lower_limit:
-            order_quantity = self.upper_limit - self.inventory
-            print('order', order_quantity, 'units')
-            order = self.producer.order(order_quantity)
+        if self.inventory == 0:
+            print('order', self.order_quantity, 'units')
+            order = self.producer.order(self.order_quantity)
             product = order.product
             offer = Offer.from_product(product, self.selling_price, self.shipping_time)
             offer = self.marketplace.add_offer(offer)
@@ -49,7 +62,7 @@ class ArnoldMerchant:
     def run(self):
         while True:
             self.update()
-            time.sleep(1)
+            time.sleep(0.5)
 
     def sold_offer(self, offer: SoldOffer):
         self.inventory -= offer.amount_sold
