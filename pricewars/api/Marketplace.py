@@ -36,7 +36,7 @@ class Marketplace(PricewarsBaseApi):
         self.request('patch', 'offers/{:d}/restock'.format(offer_id), json=body)
 
     def inventory_price(self) -> float:
-        response = self.request('get', 'inventory_price')
+        response = self.request('get', 'holding_cost_rate')
         return response.json()
 
     def register(self, endpoint_url_or_port: Union[str, int], merchant_name: str,
