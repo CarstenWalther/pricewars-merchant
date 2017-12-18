@@ -2,15 +2,13 @@ import argparse
 import threading
 import time
 import requests
+import numpy as np
 
 from pricewars import MerchantServer
 from pricewars.api import Marketplace, Producer
 from pricewars.models import SoldOffer
 from pricewars.models import Offer
-
-
-def calculate_order_quantity(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute):
-    return round((2 * demand_per_minute * fixed_order_cost / holding_cost_per_unit_per_minute) ** 0.5)
+from demand_estimation import estimate_demand_distribution
 
 
 class ArnoldMerchant:
@@ -26,22 +24,73 @@ class ArnoldMerchant:
         self.producer = Producer(self.token, producer_url)
 
         self.inventory = 0
+        self.MAX_STOCK = 40
+        # fix selling price
         self.selling_price = 30
 
-        # customer behavior is known
-        demand_per_minute = 60
+        # customer behavior is a known distribution
+        def time_between_visits():
+            return np.random.exponential(scale=1.0)
+
         # only one product can be bought in this scenario
-        fixed_order_cost = self.producer.get_products()[0].fixed_order_cost
+        product_info = self.producer.get_products()[0]
+        self.fixed_order_cost = product_info.fixed_order_cost
+        self.product_cost = product_info.price
         # merchant should not be able to change his inventory price
         # but for convenience set the price here
         requests.put('http://marketplace:8080/holding_cost_rate', json={'rate': 5, 'merchant_id': self.merchant_id})
-        holding_cost_per_unit_per_minute = self.marketplace.inventory_price()
-        self.order_quantity = calculate_order_quantity(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute)
-        print(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute, self.order_quantity)
+        self.holding_cost_per_unit_per_minute = self.marketplace.inventory_price()
+        self.INTERVAL_LENGTH_IN_SECONDS = 1.0
+
+        demand_distribution = estimate_demand_distribution(time_between_visits, self.INTERVAL_LENGTH_IN_SECONDS, self.MAX_STOCK + 1)
+
+        def distribution_function(demand):
+            return demand_distribution[demand]
+
+        self.policy = self.create_policy(distribution_function)
+
         self.shipping_time = {
             'standard': 5,
             'prime': 1
         }
+
+    def order_cost(self, order_quantity):
+        return order_quantity * self.product_cost + (order_quantity > 0) * self.fixed_order_cost
+
+    def holding_cost(self, remaining_stock, order_quantity):
+        return (remaining_stock + order_quantity) * (self.holding_cost_per_unit_per_minute * self.INTERVAL_LENGTH_IN_SECONDS / 60)
+
+    def sales_revenue(self, sales):
+        return sales * self.selling_price
+
+    def profit(self, remaining_stock, sales, order_quantity):
+        return self.sales_revenue(sales) - self.order_cost(order_quantity) - self.holding_cost(remaining_stock, order_quantity)
+
+    def create_policy(self, demand_distribution):
+        policy = np.zeros(self.MAX_STOCK + 1, dtype=np.int32)
+        expected_profits = np.zeros(self.MAX_STOCK + 1)
+
+        for iteration in range(1000):
+            remaining_stock, order_quantity, demand = np.split(
+                np.mgrid[0:self.MAX_STOCK + 1, 0:self.MAX_STOCK + 1, 0:self.MAX_STOCK + 1], 3)
+            remaining_stock = np.squeeze(remaining_stock)
+            order_quantity = np.squeeze(order_quantity)
+            demand = np.squeeze(demand)
+            probabilities = demand_distribution(demand)
+            sales = np.minimum(demand, remaining_stock + order_quantity)
+            all_expected_profits = np.sum(probabilities * (
+                    self.profit(remaining_stock, sales, order_quantity)
+                    + iteration * expected_profits[np.clip(remaining_stock + order_quantity - sales, 0, self.MAX_STOCK)]
+            ), axis=-1) / (iteration + 1)
+            policy = np.argmax(all_expected_profits, axis=-1)
+            expected_profits = np.max(all_expected_profits, axis=-1)
+        print(policy)
+        print('expected profit', expected_profits[0])
+
+        def policy_function(remaining_stock):
+            return policy[np.clip(remaining_stock, 0, self.MAX_STOCK)]
+
+        return policy_function
 
     def setup_server(self, port):
         server = MerchantServer(self)
@@ -51,9 +100,10 @@ class ArnoldMerchant:
         return thread
 
     def update(self):
-        if self.inventory == 0:
-            print('order', self.order_quantity, 'units')
-            order = self.producer.order(self.order_quantity)
+        order_quantity = self.policy(self.inventory)
+        if order_quantity > 0:
+            print('order', order_quantity, 'units')
+            order = self.producer.order(order_quantity)
             product = order.product
             offer = Offer.from_product(product, self.selling_price, self.shipping_time)
             offer = self.marketplace.add_offer(offer)
@@ -62,7 +112,7 @@ class ArnoldMerchant:
     def run(self):
         while True:
             self.update()
-            time.sleep(0.5)
+            time.sleep(self.INTERVAL_LENGTH_IN_SECONDS)
 
     def sold_offer(self, offer: SoldOffer):
         self.inventory -= offer.amount_sold
