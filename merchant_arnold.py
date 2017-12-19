@@ -39,7 +39,7 @@ class ArnoldMerchant:
         # merchant should not be able to change his inventory price
         # but for convenience set the price here
         requests.put('http://marketplace:8080/holding_cost_rate', json={'rate': 5, 'merchant_id': self.merchant_id})
-        self.holding_cost_per_unit_per_minute = self.marketplace.inventory_price()
+        self.holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
         self.INTERVAL_LENGTH_IN_SECONDS = 1.0
 
         demand_distribution = estimate_demand_distribution(time_between_visits, self.INTERVAL_LENGTH_IN_SECONDS, self.MAX_STOCK + 1)
