@@ -17,8 +17,8 @@ class ArnoldMerchant:
 
         self.marketplace = Marketplace(marketplace_url)
         self.marketplace.wait_for_host()
-        response = self.marketplace.register(endpoint_url_or_port=port, merchant_name='Arnold',
-                                             algorithm_name='economic order quantity')
+        response = self.marketplace.register(endpoint_url_or_port=port, merchant_name='DynProgramming',
+                                             algorithm_name='strategy calculated with dynamic programming')
         self.merchant_id = response.merchant_id
         self.token = response.merchant_token
         self.producer = Producer(self.token, producer_url)
