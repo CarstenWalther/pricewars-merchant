@@ -1,7 +1,6 @@
 import argparse
 import threading
 import time
-import requests
 
 from pricewars import MerchantServer
 from pricewars.api import Marketplace, Producer
@@ -32,9 +31,6 @@ class ArnoldMerchant:
         demand_per_minute = 60
         # only one product can be bought in this scenario
         fixed_order_cost = self.producer.get_products()[0].fixed_order_cost
-        # merchant should not be able to change his inventory price
-        # but for convenience set the price here
-        requests.put('http://marketplace:8080/holding_cost_rate', json={'rate': 5, 'merchant_id': self.merchant_id})
         holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
         self.order_quantity = calculate_order_quantity(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute)
         print(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute, self.order_quantity)

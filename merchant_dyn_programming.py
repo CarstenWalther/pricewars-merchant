@@ -1,7 +1,6 @@
 import argparse
 import threading
 import time
-import requests
 import numpy as np
 
 from pricewars import MerchantServer
@@ -36,9 +35,6 @@ class ArnoldMerchant:
         product_info = self.producer.get_products()[0]
         self.fixed_order_cost = product_info.fixed_order_cost
         self.product_cost = product_info.price
-        # merchant should not be able to change his inventory price
-        # but for convenience set the price here
-        requests.put('http://marketplace:8080/holding_cost_rate', json={'rate': 5, 'merchant_id': self.merchant_id})
         self.holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
         self.INTERVAL_LENGTH_IN_SECONDS = 1.0
 
