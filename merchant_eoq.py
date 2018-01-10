@@ -9,10 +9,13 @@ from pricewars.models import Offer
 
 
 def calculate_order_quantity(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute):
+    # Prevent division by zero
+    if holding_cost_per_unit_per_minute == 0:
+        holding_cost_per_unit_per_minute += 0.0001
     return round((2 * demand_per_minute * fixed_order_cost / holding_cost_per_unit_per_minute) ** 0.5)
 
 
-class ArnoldMerchant:
+class EOQMerchant:
     def __init__(self, port: int, marketplace_url: str, producer_url: str):
         self.server_thread = self.setup_server(port)
 
@@ -90,5 +93,5 @@ def parse_arguments():
 
 if __name__ == "__main__":
     args = parse_arguments()
-    merchant = ArnoldMerchant(args.port, args.marketplace, args.producer)
+    merchant = EOQMerchant(args.port, args.marketplace, args.producer)
     merchant.run()
