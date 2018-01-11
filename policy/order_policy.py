@@ -31,14 +31,7 @@ def create_policy(demand_distribution, selling_price, product_cost, fixed_order_
         iteration += 1
 
     policy = np.argmax(all_expected_profits, axis=-1)
-    print('policy:', policy)
-    print('expected profit', expected_profits[0])
-
-    def policy_function(remaining_stock):
-        return policy[np.clip(remaining_stock, 0, max_stock)]
-
-    # TODO: what to return?
-    return policy_function, policy
+    return policy
 
 
 def profit(remaining_stock, sales, order_quantity, selling_price, product_cost, fixed_order_cost,
@@ -59,8 +52,24 @@ def sales_revenue(sales, selling_price):
     return sales * selling_price
 
 
-def evaluate_policy(policy, demand_distribution, selling_price, product_cost, fixed_order_cost,
+def generic_metric(metric, remaining_stock, sales, order_quantity, selling_price, product_cost, fixed_order_cost, holding_cost_per_interval):
+    if metric == 'profit':
+        return profit(remaining_stock, sales, order_quantity, selling_price, product_cost, fixed_order_cost, holding_cost_per_interval)
+    elif metric == 'revenue':
+        return sales_revenue(sales, selling_price)
+    elif metric == 'holding_cost':
+        holding_cost(remaining_stock, order_quantity, holding_cost_per_interval)
+    elif metric == 'order_cost':
+        order_cost(order_quantity, product_cost, fixed_order_cost)
+    else:
+        raise ValueError('Invalid metric')
+
+
+def evaluate_policy(policy, metric, demand_distribution, selling_price, product_cost, fixed_order_cost,
                     holding_cost_per_interval, max_stock, threshold=1e-5):
+    """
+    For metric use 'profit', 'revenue', 'holding_cost' or 'order_cost'
+    """
     expected_profits = np.zeros(max_stock + 1)
     remaining_stock, demand = np.split(np.mgrid[0:max_stock + 1, 0:max_stock + 1], 2)
     remaining_stock = np.squeeze(remaining_stock)
@@ -75,9 +84,7 @@ def evaluate_policy(policy, demand_distribution, selling_price, product_cost, fi
     while difference > threshold:
         old_expected_profits = expected_profits
         expected_profits = np.sum(probabilities * (
-                profit(remaining_stock, sales, order_quantity, selling_price, product_cost, fixed_order_cost,
-                       holding_cost_per_interval)
-                #sales_revenue(sales, selling_price)
+                generic_metric(metric, remaining_stock, sales, order_quantity, selling_price, product_cost, fixed_order_cost, holding_cost_per_interval)
                 + iteration * expected_profits[np.clip(remaining_stock + order_quantity - sales, 0, max_stock)]
         ), axis=-1) / (iteration + 1)
         difference = np.max(np.absolute(expected_profits - old_expected_profits))

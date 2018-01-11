@@ -46,8 +46,13 @@ class DynProgrammingMerchant:
         def distribution_function(demand):
             return demand_distribution[demand]
 
-        self.policy = create_policy(distribution_function, self.SELLING_PRICE, product_cost, fixed_order_cost,
-                                    holding_cost_per_interval, MAX_STOCK)
+        policy_array = create_policy(distribution_function, self.SELLING_PRICE, product_cost, fixed_order_cost,
+                                     holding_cost_per_interval, MAX_STOCK)
+
+        def policy_function(remaining_stock):
+            return policy_array[np.clip(remaining_stock, 0, MAX_STOCK)]
+
+        self.policy = policy_function
 
         self.shipping_time = {
             'standard': 5,
