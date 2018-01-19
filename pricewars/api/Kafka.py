@@ -17,6 +17,6 @@ class Kafka(PricewarsBaseApi):
     def download_topic_data(self, topic: str) -> Optional[pd.DataFrame]:
         url = self._request_topic_url(topic)
         try:
-            return pd.read_csv(url)
+            return pd.read_csv(url, parse_dates=['timestamp'])
         except pd.errors.EmptyDataError:
             return None
