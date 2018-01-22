@@ -21,6 +21,7 @@ class DynProgrammingMerchant:
                                              algorithm_name='strategy calculated with dynamic programming')
         self.merchant_id = response.merchant_id
         self.token = response.merchant_token
+        print('token', self.token)
         self.producer = Producer(self.token, producer_url)
 
         self.inventory = 0
