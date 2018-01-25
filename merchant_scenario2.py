@@ -30,6 +30,14 @@ def aggregate_sales(sales_data, interval, default_price):
         .fillna({'sales': 0, 'min_price': default_price})
 
 
+def default_policy(remaining_stock):
+    if remaining_stock == 0:
+        # Buy some products to avoid to miss sales
+        return 10
+    else:
+        return 0
+
+
 class DynProgrammingMerchant:
     def __init__(self, port: int, marketplace_url: str, producer_url: str):
         self.server_thread = self.start_server(port)
@@ -57,7 +65,7 @@ class DynProgrammingMerchant:
         holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
         self.holding_cost_per_interval = self.INTERVAL_LENGTH_IN_SECONDS * (holding_cost_per_unit_per_minute / 60)
 
-        self.policy = self.update_policy()
+        self.policy = default_policy
         self.next_training = time.time() + self.MINUTES_BETWEEN_TRAININGS * 60
 
         self.shipping_time = {
@@ -81,7 +89,7 @@ class DynProgrammingMerchant:
                                      self.holding_cost_per_interval, self.MAX_STOCK)
 
         print(policy_array)
-        return lambda remaining_stock: policy_array[np.clip(remaining_stock, 0, self.MAX_STOCK)]
+        self.policy = lambda remaining_stock: policy_array[np.clip(remaining_stock, 0, self.MAX_STOCK)]
 
     def start_server(self, port):
         server = MerchantServer(self)
@@ -101,13 +109,13 @@ class DynProgrammingMerchant:
             self.inventory += offer.amount
 
     def run(self):
-        starttime = time.time()
+        start_time = time.time()
         while True:
             self.update()
             if time.time() >= self.next_training:
-                self.policy = self.update_policy()
+                threading.Thread(target=self.update_policy).start()
                 self.next_training += self.MINUTES_BETWEEN_TRAININGS * 60
-            time.sleep(self.INTERVAL_LENGTH_IN_SECONDS - ((time.time() - starttime) % self.INTERVAL_LENGTH_IN_SECONDS))
+            time.sleep(self.INTERVAL_LENGTH_IN_SECONDS - ((time.time() - start_time) % self.INTERVAL_LENGTH_IN_SECONDS))
 
     def sold_offer(self, offer: SoldOffer):
         self.inventory -= offer.amount_sold
