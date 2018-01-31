@@ -14,21 +14,17 @@ from pricewars.models import Offer
 from policy.order_policy import create_policy
 
 
-def demand_learning(X, y, fix_selling_price):
+def demand_learning(features, y):
     model = linear_model.LinearRegression()
-    model.fit(X, y)
-    mean = model.predict(fix_selling_price).squeeze()
-    print('mean sales at price', fix_selling_price, 'is', mean)
+    model.fit(features, y)
 
-    def demand_distribution(demand):
+    def demand_distribution(demand, price):
+        # Do some reshaping because 'predict' needs the price in shape (x, 1)
+        # but the resulting mean should be in the original dimensions.
+        mean = model.predict(price.reshape(-1, 1)).reshape(price.shape)
         return poisson.pmf(demand, mean)
 
     return demand_distribution
-
-
-def default_policy(remaining_stock):
-    # Refill the inventory with some products to avoid to miss sales
-    return 10 if remaining_stock == 0 else 0
 
 
 def aggregate_sales_to_market_situations(sales_data, market_situations):
@@ -38,19 +34,20 @@ def aggregate_sales_to_market_situations(sales_data, market_situations):
     them independent from the interval length.
     Sales are counted for each offer separately.
     """
-    grouped = sales_data.groupby(['offer_id', pd.cut(sales_data['timestamp'], market_situations['timestamp'].unique(), right=False)])
+    grouped = sales_data.groupby(
+        ['offer_id', pd.cut(sales_data['timestamp'], market_situations['timestamp'].unique(), right=False)])
     sales_by_interval = grouped['amount'].sum()
     # Calculate the time span from the start and end of the interval
     time_spans = sales_by_interval.index.get_level_values('timestamp') \
         .map(lambda e: e.right - e.left).astype('timedelta64[ns]').values
-    sales_per_minute = 1 / (time_spans / np.timedelta64(1, 'm')) * sales_by_interval
+    sales_per_minute = sales_by_interval / (time_spans / np.timedelta64(1, 'm'))
     return sales_per_minute
 
 
 def extract_features(market_situation, own_offer_id):
     # TODO: maybe use index here
     own_offer = market_situation[market_situation['offer_id'] == own_offer_id].iloc[0]
-    return (own_offer['price'], )
+    return (own_offer['price'],)
 
 
 def aggregate_sales_data(merchant_id, market_situations, sales_data):
@@ -64,7 +61,7 @@ def aggregate_sales_data(merchant_id, market_situations, sales_data):
     sales_per_minute.index = sales_per_minute.index.map(lambda e: (e[0], e[1].left))
     sales_data_by_product = defaultdict(list)
 
-    # We look at each marketsituation (same timestamp) and separate market data for each product.
+    # We look at each market situation (same timestamp) and separate market data for each product.
     for (product_id, timestamp), market_situation in market_situations.groupby(['product_id', 'timestamp']):
         # A market situation can have multiple offers that belong to this merchant.
         # For each own offer a feature-sales-pair is generated that
@@ -100,10 +97,9 @@ class DynProgrammingMerchant:
         self.inventory = 0
         self.MAX_STOCK = 40
         self.INTERVAL_LENGTH_IN_SECONDS = 1
-        self.MINUTES_BETWEEN_TRAININGS = 5
-        self.selling_price_low = 28
-        self.selling_price_high = 32
-        self.selling_price_mean = np.mean([self.selling_price_low, self.selling_price_high])
+        self.MINUTES_BETWEEN_TRAININGS = 1
+        self.selling_price_low = 25
+        self.selling_price_high = 35
 
         # only one product can be bought in this scenario
         product_info = self.producer.get_products()[0]
@@ -112,7 +108,8 @@ class DynProgrammingMerchant:
         holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
         self.holding_cost_per_interval = self.INTERVAL_LENGTH_IN_SECONDS * (holding_cost_per_unit_per_minute / 60)
 
-        self.policy = default_policy
+        self.order_policy = lambda stock: 10 if stock == 0 else 0
+        self.pricing_policy = lambda stock: np.random.randint(self.selling_price_low, self.selling_price_high + 1)
         self.next_training = time.time() + self.MINUTES_BETWEEN_TRAININGS * 60
 
         self.shipping_time = {
@@ -120,33 +117,36 @@ class DynProgrammingMerchant:
             'prime': 1
         }
 
-    def estimate_demand_distribution(self, default_mean=1):
+    def estimate_demand_distribution(self):
         market_situations = self.kafka_reverse_proxy.download_topic_data('marketSituation')
         sales_data = self.kafka_reverse_proxy.download_topic_data('buyOffer')
-        #TODO: used for debuggin, remove later
-        market_situations.to_csv('market_situation.csv', index=False)
-        sales_data.to_csv('sales.csv', index=False)
         if market_situations is not None and sales_data is not None:
             sales_per_product = aggregate_sales_data(self.merchant_id, market_situations, sales_data)
             # Currently there is only one product type
             if sales_per_product[1]:
                 features, sales_per_minute = zip(*sales_per_product[1])
                 sales_per_decision_interval = np.array(sales_per_minute) / 60 * self.INTERVAL_LENGTH_IN_SECONDS
-                return demand_learning(features, sales_per_decision_interval, self.selling_price_mean)
-        print('No market data available: use default demand distribution')
-        return lambda demand: poisson.pmf(demand, default_mean)
-
-    def random_selling_price(self):
-        return np.random.randint(self.selling_price_low, self.selling_price_high)
+                return demand_learning(features, sales_per_decision_interval)
+        return None
 
     def update_policy(self):
         print('Update policy')
+        start = time.time()
         demand_function = self.estimate_demand_distribution()
-        policy_array = create_policy(demand_function, self.selling_price_mean, self.product_cost, self.fixed_order_cost,
-                                     self.holding_cost_per_interval, self.MAX_STOCK)
+        if demand_function is None:
+            print('Failed to estimate demand. Use previous policy')
+            return
+        order_policy_array, pricing_policy_array = \
+            create_policy(demand_function, self.product_cost, self.fixed_order_cost, self.holding_cost_per_interval,
+                          self.MAX_STOCK, self.selling_price_low, self.selling_price_high, threshold=0.01)
 
-        print(policy_array)
-        self.policy = lambda remaining_stock: policy_array[np.clip(remaining_stock, 0, self.MAX_STOCK)]
+        print('Order policy')
+        print(order_policy_array)
+        print('Pricing policy')
+        print(pricing_policy_array)
+        self.order_policy = lambda stock: order_policy_array[np.clip(stock, 0, self.MAX_STOCK)]
+        self.pricing_policy = lambda stock: pricing_policy_array[np.clip(stock, 0, self.MAX_STOCK)]
+        print('Policy update took {0:.2f} seconds'.format(time.time() - start))
 
     def start_server(self, port):
         server = MerchantServer(self)
@@ -156,12 +156,15 @@ class DynProgrammingMerchant:
         return thread
 
     def update(self):
-        order_quantity = self.policy(self.inventory)
+        # Convert because json module cannot serialize numpy numbers
+        order_quantity = int(self.order_policy(self.inventory))
         if order_quantity > 0:
-            print('order', order_quantity, 'units')
+            print('Order', order_quantity, 'units')
             order = self.producer.order(order_quantity)
             product = order.product
-            offer = Offer.from_product(product, self.random_selling_price(), self.shipping_time)
+            # Convert because json module cannot serialize numpy numbers
+            price = float(self.pricing_policy(self.inventory))
+            offer = Offer.from_product(product, price, self.shipping_time)
             offer = self.marketplace.add_offer(offer)
             self.inventory += offer.amount
 
