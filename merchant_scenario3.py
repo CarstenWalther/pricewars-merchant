@@ -94,7 +94,6 @@ class DynProgrammingMerchant:
         self.producer = Producer(self.token, producer_url)
         self.kafka_reverse_proxy = Kafka(self.token)
 
-        self.inventory = 0
         self.MAX_STOCK = 40
         self.INTERVAL_LENGTH_IN_SECONDS = 1
         self.MINUTES_BETWEEN_TRAININGS = 1
@@ -155,31 +154,45 @@ class DynProgrammingMerchant:
         thread.start()
         return thread
 
-    def update(self):
+    def update_offers(self):
+        market_situation = self.marketplace.get_offers()
+        own_offers = [offer for offer in market_situation if offer.merchant_id == self.merchant_id]
+        inventory_level = sum(offer.amount for offer in own_offers)
         # Convert because json module cannot serialize numpy numbers
-        order_quantity = int(self.order_policy(self.inventory))
+        order_quantity = int(self.order_policy(inventory_level))
+        # Convert because json module cannot serialize numpy numbers
+        new_price = float(self.pricing_policy(inventory_level))
+        print('Update price to', new_price)
+
         if order_quantity > 0:
             print('Order', order_quantity, 'units')
             order = self.producer.order(order_quantity)
             product = order.product
-            # Convert because json module cannot serialize numpy numbers
-            price = float(self.pricing_policy(self.inventory))
-            offer = Offer.from_product(product, price, self.shipping_time)
-            offer = self.marketplace.add_offer(offer)
-            self.inventory += offer.amount
+
+            if own_offers:
+                own_offers[0].price = new_price
+                self.marketplace.update_offer(own_offers[0])
+                # There should be only one own offer
+                self.marketplace.restock(own_offers[0].offer_id, product.amount, product.signature)
+            else:
+                offer = Offer.from_product(product, new_price, self.shipping_time)
+                self.marketplace.add_offer(offer)
+        elif own_offers:
+            # There should be only one own offer
+            own_offers[0].price = new_price
+            self.marketplace.update_offer(own_offers[0])
 
     def run(self):
         start_time = time.time()
         while True:
-            self.update()
+            self.update_offers()
             if time.time() >= self.next_training:
                 threading.Thread(target=self.update_policy).start()
                 self.next_training += self.MINUTES_BETWEEN_TRAININGS * 60
             time.sleep(self.INTERVAL_LENGTH_IN_SECONDS - ((time.time() - start_time) % self.INTERVAL_LENGTH_IN_SECONDS))
 
     def sold_offer(self, offer: SoldOffer):
-        self.inventory -= offer.amount_sold
-        print('sold', offer.amount_sold, 'available', self.inventory)
+        print('Sold', offer.amount_sold, 'item(s)')
 
     def get_state(self) -> str:
         return 'running'

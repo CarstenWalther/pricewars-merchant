@@ -14,11 +14,8 @@ class Marketplace(PricewarsBaseApi):
     def __init__(self, token: Optional[str] = None, host: str = DEFAULT_URL, debug: bool = False):
         super().__init__(token, host, debug)
 
-    def get_offers(self, include_empty_offers=False) -> List[Offer]:
-        params = {}
-        if include_empty_offers:
-            params['include_empty_offer'] = True
-        r = self.request('get', 'offers', params=params)
+    def get_offers(self, include_empty_offers: bool = False) -> List[Offer]:
+        r = self.request('get', 'offers', params={'include_empty_offer': include_empty_offers})
         return Offer.from_list(r.json())
 
     def add_offer(self, offer: Offer) -> Offer:
@@ -28,7 +25,7 @@ class Marketplace(PricewarsBaseApi):
     def update_offer(self, offer: Offer):
         self.request('put', 'offers/{:d}'.format(offer.offer_id), json=offer.to_dict())
 
-    def restock(self, offer_id=-1, amount=0, signature=''):
+    def restock(self, offer_id: int, amount: int = 0, signature: str = '') -> None:
         body = {
             'amount': amount,
             'signature': signature
@@ -43,8 +40,7 @@ class Marketplace(PricewarsBaseApi):
         return response.json()
 
     def register(self, endpoint_url_or_port: Union[str, int], merchant_name: str,
-                          algorithm_name: str = '') -> MerchantRegisterResponse:
-
+                 algorithm_name: str = '') -> MerchantRegisterResponse:
         if type(endpoint_url_or_port) == int:
             port = endpoint_url_or_port
             endpoint_url = 'http://{}:{}'.format(self._get_own_ip_address(self.host), port)
@@ -61,7 +57,7 @@ class Marketplace(PricewarsBaseApi):
         self.set_auth_token(response.merchant_token)
         return response
 
-    def unregister(self, merchant_token=''):
+    def unregister(self, merchant_token: str = '') -> None:
         self.request('delete', 'merchants/{:s}'.format(merchant_token))
 
     @staticmethod
