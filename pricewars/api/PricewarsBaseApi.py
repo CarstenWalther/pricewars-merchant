@@ -1,7 +1,8 @@
-from urllib.parse import urljoin
-import requests
 from time import time
 from typing import Optional
+from urllib.parse import urljoin
+import requests
+import logging
 
 from pricewars.models.ApiError import ApiError
 
@@ -14,15 +15,15 @@ class PricewarsBaseApi:
         if token is not None:
             self.set_auth_token(token)
 
-    def request(self, method: str, resource: str, **kwargs):
-        if self.debug:
-            print('request', self.__class__, method, resource, kwargs)
+        logging.basicConfig()
+        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger.setLevel(logging.DEBUG)
 
+    def request(self, method: str, resource: str, **kwargs):
+        self.logger.debug(' '.join((method, resource, str(kwargs))))
         url = urljoin(self.host, resource)
         response = self.session.request(method, url, **kwargs)
-
-        if self.debug:
-            print('response', 'status({:d})'.format(response.status_code), response.text)
+        self.logger.debug(str(response.status_code) + ' ' + response.text)
 
         try:
             response.raise_for_status()
