@@ -2,8 +2,7 @@ import numpy as np
 
 
 def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
-                  max_stock, selling_price_low, selling_price_high, max_iterations=10):
-    # TODO: don't use selling price from outside
+                  max_stock, selling_price_low=20, selling_price_high=40, max_iterations=10):
     # TODO: don't use max_stock from outside
     remaining_stock = np.arange(0, max_stock + 1).reshape((-1, 1, 1, 1))
     order_quantity = np.arange(0, max_stock + 1).reshape((1, -1, 1, 1))
@@ -13,23 +12,24 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
     expected_profits = np.zeros(len(remaining_stock))
     order_policy = np.zeros(len(remaining_stock))
     price_policy = np.zeros(len(remaining_stock))
-    # TODO: use selling price
 
     for _ in range(max_iterations):
         old_order_policy = order_policy
+        old_price_policy = price_policy
         order_policy, price_policy, expected_profits = bellman_equation(demand_distribution, product_cost, fixed_order_cost,
                                                           holding_cost_per_interval, selling_prices, expected_profits,
                                                           remaining_stock, order_quantity, demand, iterations=100)
         print(order_policy)
         print(price_policy)
         # ignore non-orders, i.e. orders of zero products for the minimum order
-        min_order = np.min(order_policy[order_policy > 0])
+        orders_greater_zero = order_policy[order_policy > 0]
+        min_order = np.min(orders_greater_zero) if orders_greater_zero.size > 0 else 1
         max_order = np.max(order_policy)
 
         lower_limit = order_quantity[0, 1, 0, 0]
         upper_limit = order_quantity[0, -1, 0, 0]
 
-        if min_order == lower_limit:
+        if min_order <= lower_limit:
             order_start = min_order // 2
         else:
             # Add some unused order quantities as option
@@ -47,7 +47,13 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
         order_quantity = np.arange(order_start - 1, order_end + 1).reshape((1, -1, 1, 1))
         order_quantity[0, 0, 0, 0] = 0
 
-        if np.array_equal(order_policy, old_order_policy):
+        # adapt selling price
+        #TODO: faster growth when at decision state limit
+        selling_price_low = max(0, np.min(price_policy) - 3)
+        selling_price_high = np.max(price_policy) + 3
+        selling_prices = np.arange(selling_price_low, selling_price_high).reshape((1, 1, -1, 1))
+
+        if np.array_equal(order_policy, old_order_policy) and np.array_equal(price_policy, old_price_policy):
             # The policy has converged
             break
 

@@ -140,8 +140,7 @@ class DynProgrammingMerchant:
         start = time.time()
         order_policy_array, pricing_policy_array = create_policy(demand_function, self.product_cost,
                                                                  self.fixed_order_cost, self.holding_cost_per_interval,
-                                                                 self.MAX_STOCK, self.selling_price_low,
-                                                                 self.selling_price_high)
+                                                                 self.MAX_STOCK)
 
         self.order_policy = lambda stock: order_policy_array[np.clip(stock, 0, self.MAX_STOCK)]
         self.pricing_policy = lambda stock: pricing_policy_array[np.clip(stock, 0, self.MAX_STOCK)]
