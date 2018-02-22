@@ -32,7 +32,6 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
         iteration += 1
 
     new_shaped_e_profits = all_expected_profits.reshape(max_stock + 1, -1)
-    #TODO: is this the right axis? argmax over demand?
     policy = np.argmax(new_shaped_e_profits, axis=-1)
     order_policy, price_policy = np.unravel_index(policy, (max_stock + 1, selling_price_high - selling_price_low + 1))
     # Transform from index to actual value
