@@ -130,22 +130,18 @@ class DynProgrammingMerchant:
 
     def update_policy(self):
         print('Update policy')
-        start = time.time()
         demand_function = self.estimate_demand_distribution()
         if demand_function is None:
             print('Failed to estimate demand. Use previous policy')
             return
-        order_policy_array, pricing_policy_array = \
-            create_policy(demand_function, self.product_cost, self.fixed_order_cost, self.holding_cost_per_interval,
-                          self.MAX_STOCK, self.selling_price_low, self.selling_price_high, threshold=0.01)
 
-        print('Order policy')
-        print(order_policy_array)
-        print('Pricing policy')
-        print(pricing_policy_array)
+        order_policy_array, pricing_policy_array = create_policy(demand_function, self.product_cost,
+                                                                 self.fixed_order_cost, self.holding_cost_per_interval,
+                                                                 self.MAX_STOCK, self.selling_price_low,
+                                                                 self.selling_price_high)
+
         self.order_policy = lambda stock: order_policy_array[np.clip(stock, 0, self.MAX_STOCK)]
         self.pricing_policy = lambda stock: pricing_policy_array[np.clip(stock, 0, self.MAX_STOCK)]
-        print('Policy update took {0:.2f} seconds'.format(time.time() - start))
 
     def start_server(self, port):
         server = MerchantServer(self)

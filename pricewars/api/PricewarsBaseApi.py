@@ -10,14 +10,13 @@ from pricewars.models.ApiError import ApiError
 class PricewarsBaseApi:
     def __init__(self, token: Optional[str], host: str, debug: bool):
         self.host = host if '://' in host else 'http://' + host
-        self.debug = debug
         self.session = requests.Session()
         if token is not None:
             self.set_auth_token(token)
 
         logging.basicConfig()
         self.logger = logging.getLogger(self.__class__.__name__)
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.DEBUG if debug else logging.WARNING)
 
     def request(self, method: str, resource: str, **kwargs):
         self.logger.debug(' '.join((method, resource, str(kwargs))))
