@@ -81,13 +81,12 @@ def aggregate_sales_data(merchant_id, market_situations, sales_data):
 
 
 class DynProgrammingMerchant:
-    def __init__(self, port: int, marketplace_url: str, producer_url: str):
+    def __init__(self, name: str, port: int, marketplace_url: str, producer_url: str):
         self.server_thread = self.start_server(port)
 
         self.marketplace = Marketplace(host=marketplace_url)
         self.marketplace.wait_for_host()
-        response = self.marketplace.register(endpoint_url_or_port=port, merchant_name='Scenario 3 Merchant',
-                                             algorithm_name='strategy calculated with dynamic programming')
+        response = self.marketplace.register(port, name, algorithm_name='strategy calculated with dynamic programming')
         self.merchant_id = response.merchant_id
         self.token = response.merchant_token
         self.marketplace = Marketplace(self.token, marketplace_url)
@@ -211,6 +210,7 @@ class DynProgrammingMerchant:
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='PriceWars Merchant Being Cheapest')
+    parser.add_argument('--name', type=str, default='Scenario 4 Merchant', help='Merchant name')
     parser.add_argument('--port', type=int, required=True, help='port to bind flask App to')
     parser.add_argument('--marketplace', type=str, default=Marketplace.DEFAULT_URL, help='Marketplace URL')
     parser.add_argument('--producer', type=str, default=Producer.DEFAULT_URL, help='Producer URL')
@@ -219,5 +219,5 @@ def parse_arguments():
 
 if __name__ == "__main__":
     args = parse_arguments()
-    merchant = DynProgrammingMerchant(args.port, args.marketplace, args.producer)
+    merchant = DynProgrammingMerchant(args.name, args.port, args.marketplace, args.producer)
     merchant.run()
