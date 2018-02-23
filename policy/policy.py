@@ -2,7 +2,7 @@ import numpy as np
 
 
 def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
-                  max_stock, selling_price_low=20, selling_price_high=40, max_iterations=10):
+                  max_stock, market_situation, own_offer_id, selling_price_low=20, selling_price_high=40, max_iterations=10):
     # TODO: don't use max_stock from outside
     remaining_stock = np.arange(0, max_stock + 1).reshape((-1, 1, 1, 1))
     order_quantity = np.arange(0, max_stock + 1).reshape((1, -1, 1, 1))
@@ -18,7 +18,7 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
         old_price_policy = price_policy
         order_policy, price_policy, expected_profits = bellman_equation(demand_distribution, product_cost, fixed_order_cost,
                                                           holding_cost_per_interval, selling_prices, expected_profits,
-                                                          remaining_stock, order_quantity, demand, iterations=100)
+                                                          remaining_stock, order_quantity, demand, market_situation, own_offer_id, iterations=100)
         print(order_policy)
         print(price_policy)
         # ignore non-orders, i.e. orders of zero products for the minimum order
@@ -61,9 +61,9 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
 
 
 def bellman_equation(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval, selling_prices,
-                     expected_profits, remaining_stock, order_quantity, demand, iterations):
+                     expected_profits, remaining_stock, order_quantity, demand, market_situation, own_offer_id, iterations):
     # TODO: remove dimension magic numbers
-    probabilities = demand_distribution(demand, selling_prices)
+    probabilities = demand_distribution(demand, selling_prices, market_situation, own_offer_id)
     sales = np.minimum(demand, remaining_stock + order_quantity)
 
     for i in range(1, iterations + 1):

@@ -18,9 +18,10 @@ def demand_learning(features, y):
     model = linear_model.LinearRegression()
     model.fit(features, y)
 
-    def demand_distribution(demand, price):
+    def demand_distribution(demand, price, market_situation, own_offer_id):
         # Do some reshaping because 'predict' needs the price in shape (x, 1)
         # but the resulting mean should be in the original dimensions.
+        print('Offer id', own_offer_id)
         mean = model.predict(price.reshape(-1, 1)).reshape(price.shape)
         return poisson.pmf(demand, mean)
 
@@ -137,21 +138,25 @@ class DynProgrammingMerchant:
         return thread
 
     def update_offers(self):
-        if self.demand_function:
+        market_situation = self.marketplace.get_offers()
+        own_offers = [offer for offer in market_situation if offer.merchant_id == self.merchant_id]
+
+        # TODO: create policy if there is no own order
+        if self.demand_function and own_offers:
+            # Assume we have only one active offer
+            own_offer_id = own_offers[0].offer_id
             start = time.time()
             order_policy_array, pricing_policy_array = create_policy(self.demand_function, self.product_cost,
                                                                      self.fixed_order_cost,
-                                                                     self.holding_cost_per_interval, self.MAX_STOCK)
+                                                                     self.holding_cost_per_interval, self.MAX_STOCK, market_situation, own_offer_id)
             print('Updating policy took', time.time() - start, 'seconds')
             order_policy = lambda stock: order_policy_array[np.clip(stock, 0, len(order_policy_array) - 1)]
             pricing_policy = lambda stock: pricing_policy_array[np.clip(stock, 0, len(pricing_policy_array) - 1)]
         else:
-            # Use default policy
+            print('Use default policy')
             order_policy = lambda stock: 10 if stock == 0 else 0
             pricing_policy = lambda stock: np.random.randint(self.selling_price_low, self.selling_price_high + 1)
 
-        market_situation = self.marketplace.get_offers()
-        own_offers = [offer for offer in market_situation if offer.merchant_id == self.merchant_id]
         inventory_level = sum(offer.amount for offer in own_offers)
         # Convert because json module cannot serialize numpy numbers
         order_quantity = int(order_policy(inventory_level))
