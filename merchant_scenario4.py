@@ -106,8 +106,7 @@ class DynProgrammingMerchant:
         holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
         self.holding_cost_per_interval = self.INTERVAL_LENGTH_IN_SECONDS * (holding_cost_per_unit_per_minute / 60)
 
-        self.order_policy = lambda stock: 10 if stock == 0 else 0
-        self.pricing_policy = lambda stock: np.random.randint(self.selling_price_low, self.selling_price_high + 1)
+        self.demand_function = None
         self.next_training = time.time() + self.MINUTES_BETWEEN_TRAININGS * 60
 
         self.shipping_time = {
@@ -116,6 +115,7 @@ class DynProgrammingMerchant:
         }
 
     def estimate_demand_distribution(self):
+        start = time.time()
         market_situations = self.kafka_reverse_proxy.download_topic_data('marketSituation')
         sales_data = self.kafka_reverse_proxy.download_topic_data('buyOffer')
         if market_situations is not None and sales_data is not None:
@@ -124,26 +124,10 @@ class DynProgrammingMerchant:
             if sales_per_product[1]:
                 features, sales_per_minute = zip(*sales_per_product[1])
                 sales_per_decision_interval = np.array(sales_per_minute) / 60 * self.INTERVAL_LENGTH_IN_SECONDS
-                return demand_learning(features, sales_per_decision_interval)
-        return None
-
-    def update_policy(self):
-        print('Update policy')
-        start = time.time()
-        demand_function = self.estimate_demand_distribution()
-        print('Learning model took', time.time() - start, 'seconds')
-        if demand_function is None:
-            print('Failed to estimate demand. Use previous policy')
-            return
-
-        start = time.time()
-        order_policy_array, pricing_policy_array = create_policy(demand_function, self.product_cost,
-                                                                 self.fixed_order_cost, self.holding_cost_per_interval,
-                                                                 self.MAX_STOCK)
-
-        self.order_policy = lambda stock: order_policy_array[np.clip(stock, 0, self.MAX_STOCK)]
-        self.pricing_policy = lambda stock: pricing_policy_array[np.clip(stock, 0, self.MAX_STOCK)]
-        print('Updating policy took', time.time() - start, 'seconds')
+                self.demand_function = demand_learning(features, sales_per_decision_interval)
+                print('Learning model took', time.time() - start, 'seconds')
+                return
+        print('Failed to estimate demand. Use previous demand estimation')
 
     def start_server(self, port):
         server = MerchantServer(self)
@@ -153,13 +137,26 @@ class DynProgrammingMerchant:
         return thread
 
     def update_offers(self):
+        if self.demand_function:
+            start = time.time()
+            order_policy_array, pricing_policy_array = create_policy(self.demand_function, self.product_cost,
+                                                                     self.fixed_order_cost,
+                                                                     self.holding_cost_per_interval, self.MAX_STOCK)
+            print('Updating policy took', time.time() - start, 'seconds')
+            order_policy = lambda stock: order_policy_array[np.clip(stock, 0, len(order_policy_array) - 1)]
+            pricing_policy = lambda stock: pricing_policy_array[np.clip(stock, 0, len(pricing_policy_array) - 1)]
+        else:
+            # Use default policy
+            order_policy = lambda stock: 10 if stock == 0 else 0
+            pricing_policy = lambda stock: np.random.randint(self.selling_price_low, self.selling_price_high + 1)
+
         market_situation = self.marketplace.get_offers()
         own_offers = [offer for offer in market_situation if offer.merchant_id == self.merchant_id]
         inventory_level = sum(offer.amount for offer in own_offers)
         # Convert because json module cannot serialize numpy numbers
-        order_quantity = int(self.order_policy(inventory_level))
+        order_quantity = int(order_policy(inventory_level))
         # Convert because json module cannot serialize numpy numbers
-        new_price = float(self.pricing_policy(inventory_level))
+        new_price = float(pricing_policy(inventory_level))
         print('Update price to', new_price)
 
         if order_quantity > 0:
@@ -185,7 +182,7 @@ class DynProgrammingMerchant:
         while True:
             self.update_offers()
             if time.time() >= self.next_training:
-                threading.Thread(target=self.update_policy).start()
+                threading.Thread(target=self.estimate_demand_distribution).start()
                 self.next_training += self.MINUTES_BETWEEN_TRAININGS * 60
             time.sleep(self.INTERVAL_LENGTH_IN_SECONDS - ((time.time() - start_time) % self.INTERVAL_LENGTH_IN_SECONDS))
 
