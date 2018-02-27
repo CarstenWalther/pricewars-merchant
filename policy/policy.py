@@ -1,9 +1,17 @@
 import numpy as np
+import pandas as pd
 
+
+# TODO: deduplicate this function
+def extract_features(market_situation, own_offer_id):
+    # TODO: maybe use index here
+    own_offer = market_situation.loc[own_offer_id]
+    return (own_offer['price'],)
 
 def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
                   max_stock, market_situation, own_offer_id, selling_price_low=20, selling_price_high=40, max_iterations=10):
     # TODO: don't use max_stock from outside
+    # TODO: maybe do reshaping in bellman function
     remaining_stock = np.arange(0, max_stock + 1).reshape((-1, 1, 1, 1))
     order_quantity = np.arange(0, max_stock + 1).reshape((1, -1, 1, 1))
     selling_prices = np.arange(selling_price_low, selling_price_high).reshape((1, 1, -1, 1))
@@ -60,10 +68,22 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
     return order_policy, price_policy
 
 
+def get_features(selling_prices, market_situation, own_offer_id):
+    # TODO: can I vectorize this?
+    features = []
+    market_situation = pd.DataFrame([offer.to_dict() for offer in market_situation])
+    market_situation.set_index(['offer_id'], inplace=True)
+    for price in selling_prices[0, 0, :, 0]:
+        market_situation.at[own_offer_id, 'price'] = price
+        features.append(extract_features(market_situation, own_offer_id))
+    return np.array(features)
+
+
 def bellman_equation(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval, selling_prices,
                      expected_profits, remaining_stock, order_quantity, demand, market_situation, own_offer_id, iterations):
     # TODO: remove dimension magic numbers
-    probabilities = demand_distribution(demand, selling_prices, market_situation, own_offer_id)
+    features = get_features(selling_prices, market_situation, own_offer_id)
+    probabilities = demand_distribution(demand, features)
     sales = np.minimum(demand, remaining_stock + order_quantity)
 
     for i in range(1, iterations + 1):

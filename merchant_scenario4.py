@@ -14,15 +14,17 @@ from pricewars.models import Offer
 from policy.policy import create_policy
 
 
-def demand_learning(features, y):
+def demand_learning(X_train, y_train):
     model = linear_model.LinearRegression()
-    model.fit(features, y)
+    model.fit(X_train, y_train)
 
-    def demand_distribution(demand, price, market_situation, own_offer_id):
-        # Do some reshaping because 'predict' needs the price in shape (x, 1)
-        # but the resulting mean should be in the original dimensions.
-        print('Offer id', own_offer_id)
-        mean = model.predict(price.reshape(-1, 1)).reshape(price.shape)
+    def demand_distribution(demand, features):
+        # TODO: make sense of dimensions
+        # demand dimension (1, 1, 1, -1)
+        # features dimension (#entries, #features)
+        # mean dimension (1, 1, -1, 1)
+        # alternative: output 2 instead of 4 dimensions
+        mean = model.predict(features).reshape((1, 1, -1, 1))
         return poisson.pmf(demand, mean)
 
     return demand_distribution
