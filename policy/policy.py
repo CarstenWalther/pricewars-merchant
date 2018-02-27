@@ -97,7 +97,6 @@ def bellman_equation(demand_distribution, product_cost, fixed_order_cost, holdin
     # Combine order_quantity and price dimension, because we cannot get argmax over multiple dimensions
     policy = np.argmax(all_expected_profits.reshape(remaining_stock.shape[0], -1), axis=1)
     order_policy_indices, price_policy_indices = np.unravel_index(policy, (remaining_stock.shape[0], selling_prices.shape[2]))
-    #order_policy_indices = np.argmax(all_expected_profits, axis=1)
     order_policy = order_quantity[0, :, 0, 0][order_policy_indices]
     price_policy = selling_prices[0, 0, :, 0][price_policy_indices]
     return order_policy, price_policy, expected_profits
