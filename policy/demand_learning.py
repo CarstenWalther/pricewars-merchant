@@ -40,9 +40,8 @@ def aggregate_sales_to_market_situations(sales_data, market_situations):
 
 
 def extract_features(market_situation, own_offer_id):
-    # TODO: maybe use index here
-    own_offer = market_situation[market_situation['offer_id'] == own_offer_id].iloc[0]
-    return (own_offer['price'],)
+    own_offer = market_situation.loc[own_offer_id]
+    return own_offer['price'],
 
 
 def aggregate_sales_data(merchant_id, market_situations, sales_data):
@@ -58,10 +57,12 @@ def aggregate_sales_data(merchant_id, market_situations, sales_data):
 
     # We look at each market situation (same timestamp) and separate market data for each product.
     for (product_id, timestamp), market_situation in market_situations.groupby(['product_id', 'timestamp']):
+        market_situation = market_situation.set_index(['offer_id'])
         # A market situation can have multiple offers that belong to this merchant.
         # For each own offer a feature-sales-pair is generated that
         # assumes that all other offers are competitors offers.
-        for own_offer_id in market_situation[market_situation["merchant_id"] == merchant_id]['offer_id']:
+        for own_offer_id, _ in market_situation[market_situation["merchant_id"] == merchant_id].iterrows():
+            print('own offer id', own_offer_id)
             features = extract_features(market_situation, own_offer_id)
             sales = sales_per_minute.get((own_offer_id, timestamp), default=0)
             sales_data_by_product[product_id].append((features, sales))
