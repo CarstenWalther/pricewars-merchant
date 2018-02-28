@@ -41,7 +41,9 @@ def aggregate_sales_to_market_situations(sales_data, market_situations):
 
 def extract_features(market_situation, own_offer_id):
     own_offer = market_situation.loc[own_offer_id]
-    return own_offer['price'],
+    #competitor_offers = market_situation.loc[market_situation.index != own_offer_id]
+    price_rank = (market_situation['price'] < own_offer['price']).sum()
+    return own_offer['price'], price_rank
 
 
 def aggregate_sales_data(merchant_id, market_situations, sales_data):
@@ -62,7 +64,6 @@ def aggregate_sales_data(merchant_id, market_situations, sales_data):
         # For each own offer a feature-sales-pair is generated that
         # assumes that all other offers are competitors offers.
         for own_offer_id, _ in market_situation[market_situation["merchant_id"] == merchant_id].iterrows():
-            print('own offer id', own_offer_id)
             features = extract_features(market_situation, own_offer_id)
             sales = sales_per_minute.get((own_offer_id, timestamp), default=0)
             sales_data_by_product[product_id].append((features, sales))
