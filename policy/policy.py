@@ -23,13 +23,10 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
     for _ in range(max_iterations):
         old_order_policy = order_policy
         old_price_policy = pricing_policy
-        order_policy, pricing_policy, expected_profits = bellman_equation(demand_distribution, product_cost,
-                                                                          fixed_order_cost,
-                                                                          holding_cost_per_interval, selling_prices,
-                                                                          expected_profits,
-                                                                          remaining_stock, order_quantity, demand,
-                                                                          market_situation, own_offer_id,
-                                                                          iterations=100)
+        order_policy, pricing_policy, expected_profits = \
+            bellman_equation(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
+                             selling_prices, expected_profits, remaining_stock, order_quantity, demand,
+                             market_situation, own_offer_id, iterations=100)
         print(order_policy)
         print(pricing_policy)
 
@@ -37,45 +34,19 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
             # The policy has converged
             break
 
-        # ignore non-orders, i.e. orders of zero products for the minimum order
-        orders_greater_zero = order_policy[order_policy > 0]
-        min_order = np.min(orders_greater_zero) if orders_greater_zero.size > 0 else 1
-        max_order = np.max(order_policy)
+        order_quantity = adapt_order_search_space(order_quantity, order_policy)
+        selling_prices = adapt_price_search_space(pricing_policy)
 
-        lower_limit = order_quantity[0, 1, 0, 0]
-        upper_limit = order_quantity[0, -1, 0, 0]
+    def order_policy_function(stock):
+        return order_policy[np.clip(stock, 0, len(order_policy) - 1)]
 
-        if min_order <= lower_limit:
-            order_start = min_order // 2
-        else:
-            # Add some unused order quantities as option
-            # TODO: use something that depends on min_order size (e.g. min_order * 10%)
-            order_start = max(min_order - 3, 1)
+    def pricing_policy_function(stock):
+        return pricing_policy[np.clip(stock, 0, len(pricing_policy) - 1)]
 
-        if max_order == upper_limit:
-            order_end = max_order * 2
-        else:
-            # TODO: see order_start
-            order_end = max_order + 3
-        selling_prices = np.arange(selling_price_low, selling_price_high).reshape((1, 1, -1, 1))
-
-        # The array must always contain a zero so that the merchant is able to not order product.
-        # Make some space in the array and set the first element to zero.
-        order_quantity = np.arange(order_start - 1, order_end + 1).reshape((1, -1, 1, 1))
-        order_quantity[0, 0, 0, 0] = 0
-
-        # adapt selling price
-        # TODO: faster growth when at decision state limit
-        selling_price_low = max(0, np.min(pricing_policy) - 3)
-        selling_price_high = np.max(pricing_policy) + 3
-
-    order_policy_function = lambda stock: order_policy[np.clip(stock, 0, len(order_policy) - 1)]
-    pricing_policy_function = lambda stock: pricing_policy[np.clip(stock, 0, len(pricing_policy) - 1)]
     return order_policy_function, pricing_policy_function
 
 
 def get_features(selling_prices, market_situation, own_offer_id):
-    # TODO: can I vectorize this?
     features = []
     for price in selling_prices:
         market_situation.at[own_offer_id, 'price'] = price
@@ -101,8 +72,8 @@ def bellman_equation(demand_distribution, product_cost, fixed_order_cost, holdin
 
     # Combine order_quantity and price dimension, because we cannot get argmax over multiple dimensions
     policy = np.argmax(all_expected_profits.reshape(remaining_stock.shape[0], -1), axis=1)
-    order_policy_indices, price_policy_indices = np.unravel_index(policy,
-                                                                  (remaining_stock.shape[0], selling_prices.shape[2]))
+    order_policy_indices, price_policy_indices = \
+        np.unravel_index(policy, (remaining_stock.shape[0], selling_prices.shape[2]))
     order_policy = order_quantity[0, :, 0, 0][order_policy_indices]
     price_policy = selling_prices[0, 0, :, 0][price_policy_indices]
     return order_policy, price_policy, expected_profits
@@ -124,3 +95,41 @@ def holding_cost(remaining_stock, order_quantity, holding_cost_per_interval):
 
 def sales_revenue(sales, selling_price):
     return sales * selling_price
+
+
+def adapt_order_search_space(order_quantity, order_policy):
+    # TODO: remove reshape stuff from this function
+    # When calculating the minimum order size, ignore non-orders, i.e. orders of zero products
+    orders_greater_zero = order_policy[order_policy > 0]
+    min_order = np.min(orders_greater_zero) if orders_greater_zero.size > 0 else 1
+    max_order = np.max(order_policy)
+
+    lower_limit = order_quantity[0, 1, 0, 0]
+    upper_limit = order_quantity[0, -1, 0, 0]
+
+    if min_order <= lower_limit:
+        order_start = min_order // 2
+    else:
+        # Add some unused order quantities as option
+        # TODO: use something that depends on min_order size (e.g. min_order * 10%)
+        order_start = max(min_order - 3, 1)
+
+    if max_order == upper_limit:
+        order_end = max_order * 2
+    else:
+        # TODO: see order_start
+        order_end = max_order + 3
+
+    # The array must always contain a zero so that the merchant is able to not order products.
+    # Make some space in the array and set the first element to zero.
+    new_order_quantity = np.arange(order_start - 1, order_end + 1).reshape((1, -1, 1, 1))
+    new_order_quantity[0, 0, 0, 0] = 0
+    return new_order_quantity
+
+
+def adapt_price_search_space(pricing_policy):
+    # TODO: remove reshape stuff from this function
+    # TODO: faster growth when at decision state limit
+    selling_price_low = max(0, np.min(pricing_policy) - 3)
+    selling_price_high = np.max(pricing_policy) + 3
+    return np.arange(selling_price_low, selling_price_high).reshape((1, 1, -1, 1))
