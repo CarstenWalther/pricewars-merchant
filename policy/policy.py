@@ -8,26 +8,35 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
                   market_situation, own_offer_id, selling_price_low=20, selling_price_high=40, max_iterations=10):
     # TODO: don't use max_stock from outside
     # TODO: maybe do reshaping in bellman function
-    remaining_stock = np.arange(0, max_stock + 1).reshape((-1, 1, 1, 1))
-    order_quantity = np.arange(0, max_stock + 1).reshape((1, -1, 1, 1))
+    remaining_stock = np.arange(max_stock + 1).reshape((-1, 1, 1, 1))
+    order_quantity = np.arange(max_stock + 1).reshape((1, -1, 1, 1))
     selling_prices = np.arange(selling_price_low, selling_price_high).reshape((1, 1, -1, 1))
-    demand = np.arange(0, max_stock + 1).reshape((1, 1, 1, -1))
+    demand = np.arange(max_stock + 1).reshape((1, 1, 1, -1))
 
     expected_profits = np.zeros(len(remaining_stock))
     order_policy = np.zeros(len(remaining_stock))
-    price_policy = np.zeros(len(remaining_stock))
+    pricing_policy = np.zeros(len(remaining_stock))
+
+    market_situation = pd.DataFrame([offer.to_dict() for offer in market_situation])
+    market_situation.set_index(['offer_id'], inplace=True)
 
     for _ in range(max_iterations):
         old_order_policy = order_policy
-        old_price_policy = price_policy
-        order_policy, price_policy, expected_profits = bellman_equation(demand_distribution, product_cost,
-                                                                        fixed_order_cost,
-                                                                        holding_cost_per_interval, selling_prices,
-                                                                        expected_profits,
-                                                                        remaining_stock, order_quantity, demand,
-                                                                        market_situation, own_offer_id, iterations=100)
+        old_price_policy = pricing_policy
+        order_policy, pricing_policy, expected_profits = bellman_equation(demand_distribution, product_cost,
+                                                                          fixed_order_cost,
+                                                                          holding_cost_per_interval, selling_prices,
+                                                                          expected_profits,
+                                                                          remaining_stock, order_quantity, demand,
+                                                                          market_situation, own_offer_id,
+                                                                          iterations=100)
         print(order_policy)
-        print(price_policy)
+        print(pricing_policy)
+
+        if np.array_equal(order_policy, old_order_policy) and np.array_equal(pricing_policy, old_price_policy):
+            # The policy has converged
+            break
+
         # ignore non-orders, i.e. orders of zero products for the minimum order
         orders_greater_zero = order_policy[order_policy > 0]
         min_order = np.min(orders_greater_zero) if orders_greater_zero.size > 0 else 1
@@ -48,6 +57,7 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
         else:
             # TODO: see order_start
             order_end = max_order + 3
+        selling_prices = np.arange(selling_price_low, selling_price_high).reshape((1, 1, -1, 1))
 
         # The array must always contain a zero so that the merchant is able to not order product.
         # Make some space in the array and set the first element to zero.
@@ -56,23 +66,18 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
 
         # adapt selling price
         # TODO: faster growth when at decision state limit
-        selling_price_low = max(0, np.min(price_policy) - 3)
-        selling_price_high = np.max(price_policy) + 3
-        selling_prices = np.arange(selling_price_low, selling_price_high).reshape((1, 1, -1, 1))
+        selling_price_low = max(0, np.min(pricing_policy) - 3)
+        selling_price_high = np.max(pricing_policy) + 3
 
-        if np.array_equal(order_policy, old_order_policy) and np.array_equal(price_policy, old_price_policy):
-            # The policy has converged
-            break
-
-    return order_policy, price_policy
+    order_policy_function = lambda stock: order_policy[np.clip(stock, 0, len(order_policy) - 1)]
+    pricing_policy_function = lambda stock: pricing_policy[np.clip(stock, 0, len(pricing_policy) - 1)]
+    return order_policy_function, pricing_policy_function
 
 
 def get_features(selling_prices, market_situation, own_offer_id):
     # TODO: can I vectorize this?
     features = []
-    market_situation = pd.DataFrame([offer.to_dict() for offer in market_situation])
-    market_situation.set_index(['offer_id'], inplace=True)
-    for price in selling_prices[0, 0, :, 0]:
+    for price in selling_prices:
         market_situation.at[own_offer_id, 'price'] = price
         features.append(extract_features(market_situation, own_offer_id))
     return np.array(features)
@@ -82,7 +87,7 @@ def bellman_equation(demand_distribution, product_cost, fixed_order_cost, holdin
                      expected_profits, remaining_stock, order_quantity, demand, market_situation, own_offer_id,
                      iterations):
     # TODO: remove dimension magic numbers
-    features = get_features(selling_prices, market_situation, own_offer_id)
+    features = get_features(selling_prices[0, 0, :, 0], market_situation.copy(), own_offer_id)
     probabilities = demand_distribution(demand, features)
     sales = np.minimum(demand, remaining_stock + order_quantity)
 

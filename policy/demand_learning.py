@@ -6,7 +6,7 @@ from sklearn import linear_model
 from scipy.stats import poisson
 
 
-def demand_learning(X_train, y_train):
+def learn_demand_function(X_train, y_train):
     model = linear_model.LinearRegression()
     model.fit(X_train, y_train)
 
@@ -77,12 +77,12 @@ def aggregate_sales_data(merchant_id, market_situations, sales_data):
     return sales_data_by_product
 
 
-def blablabla(market_situations, sales_data, merchant_id, decision_interval_in_seconds):
+def demand_learning(market_situations, sales_data, merchant_id, decision_interval_in_seconds):
     if market_situations is not None and sales_data is not None:
         sales_per_product = aggregate_sales_data(merchant_id, market_situations, sales_data)
         # Currently there is only one product type
         if sales_per_product[1]:
             features, sales_per_minute = zip(*sales_per_product[1])
             sales_per_decision_interval = np.array(sales_per_minute) / 60 * decision_interval_in_seconds
-            return demand_learning(features, sales_per_decision_interval)
+            return learn_demand_function(features, sales_per_decision_interval)
     return None

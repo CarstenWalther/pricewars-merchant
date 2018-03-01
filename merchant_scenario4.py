@@ -8,7 +8,7 @@ from pricewars.api import Marketplace, Producer, Kafka
 from pricewars.models import SoldOffer
 from pricewars.models import Offer
 from policy.policy import create_policy
-from policy.demand_learning import blablabla
+from policy.demand_learning import demand_learning
 
 
 class DynProgrammingMerchant:
@@ -52,26 +52,26 @@ class DynProgrammingMerchant:
         thread.start()
         return thread
 
-    def update_offers(self):
-        market_situation = self.marketplace.get_offers()
-        own_offers = [offer for offer in market_situation if offer.merchant_id == self.merchant_id]
-
-        # TODO: create policy if there is no own order
-        if self.demand_function and own_offers:
-            # Assume we have only one active offer
-            own_offer_id = own_offers[0].offer_id
-            start = time.time()
-            order_policy_array, pricing_policy_array = create_policy(self.demand_function, self.product_cost,
-                                                                     self.fixed_order_cost,
-                                                                     self.holding_cost_per_interval, self.MAX_STOCK, market_situation, own_offer_id)
-            print('Updating policy took', time.time() - start, 'seconds')
-            order_policy = lambda stock: order_policy_array[np.clip(stock, 0, len(order_policy_array) - 1)]
-            pricing_policy = lambda stock: pricing_policy_array[np.clip(stock, 0, len(pricing_policy_array) - 1)]
+    def update_policy(self, competitor_offers):
+        start = time.time()
+        dummy_offer = Offer()
+        market_situation = [*competitor_offers, dummy_offer]
+        if self.demand_function:
+            order_policy, pricing_policy = create_policy(self.demand_function, self.product_cost, self.fixed_order_cost,
+                                                         self.holding_cost_per_interval, self.MAX_STOCK,
+                                                         market_situation, dummy_offer.offer_id)
         else:
             print('Use default policy')
             order_policy = lambda stock: 10 if stock == 0 else 0
             pricing_policy = lambda stock: np.random.randint(self.selling_price_low, self.selling_price_high + 1)
+        print('Creating policy took', time.time() - start, 'seconds')
+        return order_policy, pricing_policy
 
+    def update_offers(self):
+        market_situation = self.marketplace.get_offers()
+        own_offers = [offer for offer in market_situation if offer.merchant_id == self.merchant_id]
+        competitor_offers = [offer for offer in market_situation if offer.merchant_id != self.merchant_id]
+        order_policy, pricing_policy = self.update_policy(competitor_offers)
         inventory_level = sum(offer.amount for offer in own_offers)
         # Convert because json module cannot serialize numpy numbers
         order_quantity = int(order_policy(inventory_level))
@@ -79,23 +79,21 @@ class DynProgrammingMerchant:
         new_price = float(pricing_policy(inventory_level))
         print('Update price to', new_price)
 
+        product = None
         if order_quantity > 0:
             print('Order', order_quantity, 'units')
             order = self.producer.order(order_quantity)
             product = order.product
 
-            if own_offers:
-                own_offers[0].price = new_price
-                self.marketplace.update_offer(own_offers[0])
-                # There should be only one own offer
-                self.marketplace.restock(own_offers[0].offer_id, product.amount, product.signature)
-            else:
-                offer = Offer.from_product(product, new_price, self.shipping_time)
-                self.marketplace.add_offer(offer)
-        elif own_offers:
+        if own_offers:
             # There should be only one own offer
             own_offers[0].price = new_price
             self.marketplace.update_offer(own_offers[0])
+            if product:
+                self.marketplace.restock(own_offers[0].offer_id, product.amount, product.signature)
+        elif product:
+            offer = Offer.from_product(product, new_price, self.shipping_time)
+            self.marketplace.add_offer(offer)
 
     def run(self):
         start_time = time.time()
@@ -110,7 +108,8 @@ class DynProgrammingMerchant:
         start = time.time()
         market_situations = self.kafka_reverse_proxy.download_topic_data('marketSituation')
         sales_data = self.kafka_reverse_proxy.download_topic_data('buyOffer')
-        demand_function = blablabla(market_situations, sales_data, self.merchant_id, self.INTERVAL_LENGTH_IN_SECONDS)
+        demand_function = demand_learning(market_situations, sales_data, self.merchant_id,
+                                          self.INTERVAL_LENGTH_IN_SECONDS)
         if demand_function:
             self.demand_function = demand_function
         else:
