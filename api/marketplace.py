@@ -4,8 +4,8 @@ from typing import Union
 import socket
 from urllib.parse import urlparse
 
-from .PricewarsBaseApi import PricewarsBaseApi
-from ..models import Offer, MerchantRegisterResponse
+from api.pricewars_base_api import PricewarsBaseApi
+from models import Offer, MerchantRegisterResponse
 
 
 class Marketplace(PricewarsBaseApi):

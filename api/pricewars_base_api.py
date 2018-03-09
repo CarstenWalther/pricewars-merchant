@@ -4,7 +4,7 @@ from urllib.parse import urljoin
 import requests
 import logging
 
-from pricewars.models.ApiError import ApiError
+from api.ApiError import ApiError
 
 
 class PricewarsBaseApi:

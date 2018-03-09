@@ -1,8 +1,8 @@
 from typing import Union
 from typing import Optional
 
-from pricewars.models.PricewarsObject import PricewarsObject
-from pricewars.models import Product
+from models.PricewarsObject import PricewarsObject
+from models import Product
 
 
 class Order(PricewarsObject):

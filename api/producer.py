@@ -1,9 +1,9 @@
 from typing import List
 
-from .PricewarsBaseApi import PricewarsBaseApi
-from pricewars.models import Product
-from pricewars.models import ProductInfo
-from pricewars.models import Order
+from api.pricewars_base_api import PricewarsBaseApi
+from models import Product
+from models import ProductInfo
+from models import Order
 
 
 class Producer(PricewarsBaseApi):
