@@ -4,7 +4,6 @@ import logging
 from flask import Flask, request, Response
 from flask_cors import CORS
 
-import pricewars_merchant
 from models import SoldOffer
 
 
@@ -14,7 +13,7 @@ def json_response(message):
 
 class MerchantServer:
 
-    def __init__(self, merchant: 'pricewars_merchant.PricewarsMerchant', logging_level=logging.WARNING):
+    def __init__(self, merchant, logging_level=logging.WARNING):
         self.merchant = merchant
         self.app = Flask(__name__)
         CORS(self.app)

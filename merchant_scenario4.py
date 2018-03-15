@@ -3,10 +3,9 @@ import threading
 import time
 import numpy as np
 
-from pricewars import MerchantServer
-from pricewars.api import Marketplace, Producer, Kafka
-from pricewars.models import SoldOffer
-from pricewars.models import Offer
+from server import MerchantServer
+from api import Marketplace, Producer, Kafka
+from models import SoldOffer, Offer
 from policy.policy import create_policy
 from policy.demand_learning import demand_learning
 
@@ -25,7 +24,7 @@ class DynProgrammingMerchant:
         self.kafka_reverse_proxy = Kafka(self.token)
 
         self.MAX_STOCK = 40
-        self.INTERVAL_LENGTH_IN_SECONDS = 1
+        self.UPDATE_INTERVAL_IN_SECONDS = 5
         self.MINUTES_BETWEEN_TRAININGS = 1
         self.selling_price_low = 25
         self.selling_price_high = 35
@@ -35,7 +34,7 @@ class DynProgrammingMerchant:
         self.fixed_order_cost = product_info.fixed_order_cost
         self.product_cost = product_info.price
         holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
-        self.holding_cost_per_interval = self.INTERVAL_LENGTH_IN_SECONDS * (holding_cost_per_unit_per_minute / 60)
+        self.holding_cost_per_interval = self.UPDATE_INTERVAL_IN_SECONDS * (holding_cost_per_unit_per_minute / 60)
 
         self.demand_function = None
         self.next_training = time.time() + self.MINUTES_BETWEEN_TRAININGS * 60
@@ -102,14 +101,14 @@ class DynProgrammingMerchant:
             if time.time() >= self.next_training:
                 threading.Thread(target=self.estimate_demand_distribution).start()
                 self.next_training += self.MINUTES_BETWEEN_TRAININGS * 60
-            time.sleep(self.INTERVAL_LENGTH_IN_SECONDS - ((time.time() - start_time) % self.INTERVAL_LENGTH_IN_SECONDS))
+            time.sleep(self.UPDATE_INTERVAL_IN_SECONDS - ((time.time() - start_time) % self.UPDATE_INTERVAL_IN_SECONDS))
 
     def estimate_demand_distribution(self):
         start = time.time()
         market_situations = self.kafka_reverse_proxy.download_topic_data('marketSituation')
         sales_data = self.kafka_reverse_proxy.download_topic_data('buyOffer')
         demand_function = demand_learning(market_situations, sales_data, self.merchant_id,
-                                          self.INTERVAL_LENGTH_IN_SECONDS)
+                                          self.UPDATE_INTERVAL_IN_SECONDS)
         if demand_function:
             self.demand_function = demand_function
         else:
@@ -144,7 +143,7 @@ def parse_arguments():
     return parser.parse_args()
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     args = parse_arguments()
     merchant = DynProgrammingMerchant(args.name, args.port, args.marketplace, args.producer)
     merchant.run()

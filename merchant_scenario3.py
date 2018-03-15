@@ -7,10 +7,9 @@ import pandas as pd
 from sklearn import linear_model
 from scipy.stats import poisson
 
-from pricewars import MerchantServer
-from pricewars.api import Marketplace, Producer, Kafka
-from pricewars.models import SoldOffer
-from pricewars.models import Offer
+from server import MerchantServer
+from api import Marketplace, Producer, Kafka
+from models import SoldOffer, Offer
 from policy.order_policy import create_policy
 
 

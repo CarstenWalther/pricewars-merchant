@@ -74,6 +74,7 @@ class PricewarsMerchant:
             'prime': self.settings['primeShipping']
         }
         offer = Offer.from_product(product, 0, shipping_time)
+        offer.merchant_id = self.merchant_id
         offer.price = self.calculate_price(offer.offer_id, market_situation + [offer])
         self.marketplace.add_offer(offer)
 
