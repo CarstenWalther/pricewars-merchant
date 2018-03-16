@@ -24,7 +24,7 @@ class DynProgrammingMerchant:
         self.kafka_reverse_proxy = Kafka(self.token)
 
         self.MAX_STOCK = 40
-        self.UPDATE_INTERVAL_IN_SECONDS = 5
+        self.UPDATE_INTERVAL_IN_SECONDS = 3
         self.MINUTES_BETWEEN_TRAININGS = 1
         self.selling_price_low = 25
         self.selling_price_high = 35
@@ -63,7 +63,7 @@ class DynProgrammingMerchant:
             print('Use default policy')
             order_policy = lambda stock: 10 if stock == 0 else 0
             pricing_policy = lambda stock: np.random.randint(self.selling_price_low, self.selling_price_high + 1)
-        print('Creating policy took', time.time() - start, 'seconds')
+        print('Creating policy took {0:.2f} seconds'.format(time.time() - start))
         return order_policy, pricing_policy
 
     def update_offers(self):
@@ -118,10 +118,12 @@ class DynProgrammingMerchant:
     def sold_offer(self, offer: SoldOffer):
         print('Sold', offer.amount_sold, 'item(s)')
 
-    def get_state(self) -> str:
+    @property
+    def state(self):
         return 'running'
 
-    def get_settings(self) -> dict:
+    @property
+    def settings(self):
         return {}
 
     def update_settings(self, new_settings):
@@ -135,7 +137,7 @@ class DynProgrammingMerchant:
 
 
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='PriceWars Merchant Being Cheapest')
+    parser = argparse.ArgumentParser(description='PriceWars Merchant')
     parser.add_argument('--name', type=str, default='Scenario 4 Merchant', help='Merchant name')
     parser.add_argument('--port', type=int, required=True, help='port to bind flask App to')
     parser.add_argument('--marketplace', type=str, default=Marketplace.DEFAULT_URL, help='Marketplace URL')
