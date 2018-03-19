@@ -11,7 +11,7 @@ def learn_demand_function(X_train, y_train):
     model.fit(X_train, y_train)
 
     def demand_distribution(demand, features):
-        # TODO: make sense of dimensions
+        # TODO: move reshaping to policy.py
         # demand dimension (1, 1, 1, -1)
         # features dimension (#entries, #features)
         # mean dimension (1, 1, -1, 1)
@@ -41,8 +41,8 @@ def aggregate_sales_to_market_situations(sales_data, market_situations):
 
 def extract_features(market_situation, own_offer_id):
     own_offer = market_situation.loc[own_offer_id]
-    #competitor_offers = market_situation.loc[market_situation.index != own_offer_id]
-    price_rank = (market_situation['price'] < own_offer['price']).sum()
+    competitor_offers = market_situation.loc[market_situation.index != own_offer_id]
+    price_rank = (competitor_offers['price'] <= own_offer['price']).sum() if competitor_offers.size != 0 else 0
     return own_offer['price'], price_rank
 
 
