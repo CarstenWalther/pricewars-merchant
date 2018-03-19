@@ -24,10 +24,8 @@ class DynProgrammingMerchant:
         self.kafka_reverse_proxy = Kafka(self.token)
 
         self.MAX_STOCK = 40
-        self.UPDATE_INTERVAL_IN_SECONDS = 3
-        self.MINUTES_BETWEEN_TRAININGS = 1
-        self.selling_price_low = 25
-        self.selling_price_high = 35
+        self.UPDATE_INTERVAL_IN_SECONDS = 4
+        self.MINUTES_BETWEEN_TRAININGS = 2
 
         # only one product can be bought in this scenario
         product_info = self.producer.get_products()[0]
@@ -62,7 +60,9 @@ class DynProgrammingMerchant:
         else:
             print('Use default policy')
             order_policy = lambda stock: 10 if stock == 0 else 0
-            pricing_policy = lambda stock: np.random.randint(self.selling_price_low, self.selling_price_high + 1)
+            selling_price_low = 25
+            selling_price_high = 35
+            pricing_policy = lambda stock: np.random.randint(selling_price_low, selling_price_high + 1)
         print('Creating policy took {0:.2f} seconds'.format(time.time() - start))
         return order_policy, pricing_policy
 

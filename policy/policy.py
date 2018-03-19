@@ -3,6 +3,9 @@ import pandas as pd
 
 from policy.demand_learning import extract_features
 
+# TODO: transform to class
+previous_pricing_policy = np.random.randint(20, 40, 20)
+
 
 def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval, max_stock,
                   market_situation, own_offer_id, selling_price_low=20, selling_price_high=40, max_iterations=10):
@@ -37,6 +40,14 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
         order_quantity = adapt_order_search_space(order_quantity, order_policy)
         selling_prices = adapt_price_search_space(pricing_policy)
 
+    # prevent merchant selling products for 0€
+    global previous_pricing_policy
+    if not pricing_policy.any():
+        print('Warning: avoid selling products for 0€')
+        pricing_policy = previous_pricing_policy
+    else:
+        previous_pricing_policy = pricing_policy
+
     def order_policy_function(stock):
         return order_policy[np.clip(stock, 0, len(order_policy) - 1)]
 
@@ -48,6 +59,7 @@ def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_c
 
 def get_features(selling_prices, market_situation, own_offer_id):
     features = []
+    # TODO: don't save features as list; preallocate numpy array
     for price in selling_prices:
         market_situation.at[own_offer_id, 'price'] = price
         features.append(extract_features(market_situation, own_offer_id))
