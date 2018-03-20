@@ -17,6 +17,7 @@ class PolicyOptimizer:
         self.max_stock = max_stock
         self.selling_price_low = selling_price_low
         self.selling_price_high = selling_price_high
+        self.expected_profits = np.zeros(max_stock + 1)
 
     def create_policies(self, demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
                         market_situation, own_offer_id, max_iterations=10):
@@ -29,7 +30,6 @@ class PolicyOptimizer:
         selling_prices = np.arange(self.selling_price_low, self.selling_price_high)
         demand = np.arange(self.max_stock + 1)
 
-        expected_profits = np.zeros(len(remaining_stock))
         order_policy = np.zeros(len(remaining_stock))
         pricing_policy = np.zeros(len(remaining_stock))
 
@@ -39,12 +39,13 @@ class PolicyOptimizer:
         for _ in range(max_iterations):
             old_order_policy = order_policy
             old_price_policy = pricing_policy
-            order_policy, pricing_policy, expected_profits = \
+            order_policy, pricing_policy, self.expected_profits = \
                 policy_optimization(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
-                                    selling_prices, expected_profits, remaining_stock, order_quantity, demand,
+                                    selling_prices, self.expected_profits, remaining_stock, order_quantity, demand,
                                     market_situation, own_offer_id, iterations=100)
             print(order_policy)
             print(pricing_policy)
+            print('expected profit', self.expected_profits[0])
 
             if np.array_equal(order_policy, old_order_policy) and np.array_equal(pricing_policy, old_price_policy):
                 # The policy has converged

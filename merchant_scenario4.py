@@ -24,7 +24,7 @@ class DynProgrammingMerchant:
         self.kafka_reverse_proxy = Kafka(self.token)
 
         self.UPDATE_INTERVAL_IN_SECONDS = 4
-        self.MINUTES_BETWEEN_TRAININGS = 2
+        self.MINUTES_BETWEEN_TRAININGS = 1
 
         # only one product can be bought in this scenario
         product_info = self.producer.get_products()[0]
