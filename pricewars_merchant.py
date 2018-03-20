@@ -15,7 +15,7 @@ class PricewarsMerchant:
 
     def __init__(self, port: int, token: Optional[str], marketplace_url: str, producer_url: str, name: str):
         self.settings = {
-            'update interval': 5,
+            'update interval': 4,
             'restock limit': 20,
             'order threshold': 0,
             'shipping': 5,
@@ -64,6 +64,7 @@ class PricewarsMerchant:
 
         for offer in own_offers:
             offer.price = self.calculate_price(offer.offer_id, market_situation)
+            print('Competitor update price to', offer.price)
             self.marketplace.update_offer(offer)
 
     def restock(self, market_situation):

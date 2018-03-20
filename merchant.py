@@ -1,5 +1,6 @@
 import argparse
 from typing import Optional
+import random
 
 from api import Marketplace, Producer
 from pricewars_merchant import PricewarsMerchant
@@ -51,6 +52,16 @@ class TwoBoundStrategy:
             return cheapest_offer.price - merchant.settings['price decrement']
 
 
+class RandomStrategy:
+    name = 'Random'
+
+    settings = {}
+
+    @staticmethod
+    def calculate_price(merchant, offer_id, market_situation):
+        return random.randint(20, 50)
+
+
 class Merchant(PricewarsMerchant):
     def __init__(self, token: Optional[str], port: int, marketplace_url: str, producer_url: str, strategy):
         super().__init__(port, token, marketplace_url, producer_url, strategy.name)
@@ -78,6 +89,7 @@ def main():
     strategies = {
         CheapestStrategy.name: CheapestStrategy,
         TwoBoundStrategy.name: TwoBoundStrategy,
+        RandomStrategy.name: RandomStrategy,
     }
     merchant = Merchant(args.token, args.port, args.marketplace, args.producer, strategies[args.strategy])
     merchant.run()
