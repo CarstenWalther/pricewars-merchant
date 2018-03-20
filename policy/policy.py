@@ -3,56 +3,67 @@ import pandas as pd
 
 from policy.demand_learning import extract_features
 
-# TODO: transform to class
-previous_pricing_policy = np.random.randint(20, 40, size=20)
+
+def default_order_policy(stock):
+    return 10 if stock == 0 else 0
 
 
-def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval, market_situation,
-                  own_offer_id, max_stock=40, selling_price_low=20, selling_price_high=40, max_iterations=10):
-    remaining_stock = np.arange(max_stock + 1)
-    order_quantity = np.arange(max_stock + 1)
-    selling_prices = np.arange(selling_price_low, selling_price_high)
-    demand = np.arange(max_stock + 1)
+def default_pricing_policy(selling_price_low, selling_price_high):
+    return lambda stock: np.random.randint(selling_price_low, selling_price_high + 1)
 
-    expected_profits = np.zeros(len(remaining_stock))
-    order_policy = np.zeros(len(remaining_stock))
-    pricing_policy = np.zeros(len(remaining_stock))
 
-    market_situation = pd.DataFrame([offer.to_dict() for offer in market_situation])
-    market_situation.set_index(['offer_id'], inplace=True)
+class PolicyOptimizer:
+    def __init__(self, max_stock=40, selling_price_low=20, selling_price_high=40):
+        self.max_stock = max_stock
+        self.selling_price_low = selling_price_low
+        self.selling_price_high = selling_price_high
 
-    for _ in range(max_iterations):
-        old_order_policy = order_policy
-        old_price_policy = pricing_policy
-        order_policy, pricing_policy, expected_profits = \
-            bellman_equation(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
-                             selling_prices, expected_profits, remaining_stock, order_quantity, demand,
-                             market_situation, own_offer_id, iterations=100)
-        print(order_policy)
-        print(pricing_policy)
+    def create_policies(self, demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
+                        market_situation, own_offer_id, max_iterations=10):
+        if not demand_distribution:
+            print('Use default policy')
+            return default_order_policy, default_pricing_policy(self.selling_price_low, self.selling_price_high)
 
-        if np.array_equal(order_policy, old_order_policy) and np.array_equal(pricing_policy, old_price_policy):
-            # The policy has converged
-            break
+        remaining_stock = np.arange(self.max_stock + 1)
+        order_quantity = np.arange(self.max_stock + 1)
+        selling_prices = np.arange(self.selling_price_low, self.selling_price_high)
+        demand = np.arange(self.max_stock + 1)
 
-        order_quantity = adapt_order_search_space(order_quantity, order_policy)
-        selling_prices = adapt_price_search_space(pricing_policy)
+        expected_profits = np.zeros(len(remaining_stock))
+        order_policy = np.zeros(len(remaining_stock))
+        pricing_policy = np.zeros(len(remaining_stock))
 
-    # prevent merchant selling products for 0€
-    global previous_pricing_policy
-    if not pricing_policy.any():
-        print('Warning: avoid selling products for 0€')
-        pricing_policy = previous_pricing_policy
-    else:
-        previous_pricing_policy = pricing_policy
+        market_situation = pd.DataFrame([offer.to_dict() for offer in market_situation])
+        market_situation.set_index(['offer_id'], inplace=True)
 
-    def order_policy_function(stock):
-        return order_policy[np.clip(stock, 0, len(order_policy) - 1)]
+        for _ in range(max_iterations):
+            old_order_policy = order_policy
+            old_price_policy = pricing_policy
+            order_policy, pricing_policy, expected_profits = \
+                policy_optimization(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
+                                    selling_prices, expected_profits, remaining_stock, order_quantity, demand,
+                                    market_situation, own_offer_id, iterations=100)
+            print(order_policy)
+            print(pricing_policy)
 
-    def pricing_policy_function(stock):
-        return pricing_policy[np.clip(stock, 0, len(pricing_policy) - 1)]
+            if np.array_equal(order_policy, old_order_policy) and np.array_equal(pricing_policy, old_price_policy):
+                # The policy has converged
+                break
 
-    return order_policy_function, pricing_policy_function
+            order_quantity = adapt_order_search_space(order_quantity, order_policy)
+            selling_prices = adapt_price_search_space(pricing_policy)
+
+        if not pricing_policy.any():
+            print('Warning: avoid selling products for 0€. Use default policy')
+            return default_order_policy, default_pricing_policy(self.selling_price_low, self.selling_price_high)
+
+        def order_policy_function(stock):
+            return order_policy[np.clip(stock, 0, len(order_policy) - 1)]
+
+        def pricing_policy_function(stock):
+            return pricing_policy[np.clip(stock, 0, len(pricing_policy) - 1)]
+
+        return order_policy_function, pricing_policy_function
 
 
 def get_features(selling_prices, market_situation, own_offer_id):
@@ -64,9 +75,9 @@ def get_features(selling_prices, market_situation, own_offer_id):
     return np.array(features)
 
 
-def bellman_equation(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval, selling_prices,
-                     expected_profits, remaining_stock, order_quantity, demand, market_situation, own_offer_id,
-                     iterations):
+def policy_optimization(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval, selling_prices,
+                        expected_profits, remaining_stock, order_quantity, demand, market_situation, own_offer_id,
+                        iterations):
     remaining_stock_reshaped = remaining_stock.reshape((-1, 1, 1, 1))
     order_quantity_reshaped = order_quantity.reshape((1, -1, 1, 1))
     selling_prices_reshaped = selling_prices.reshape((1, 1, -1, 1))

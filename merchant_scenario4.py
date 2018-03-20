@@ -6,7 +6,7 @@ import numpy as np
 from server import MerchantServer
 from api import Marketplace, Producer, Kafka
 from models import SoldOffer, Offer
-from policy.policy import create_policy
+from policy.policy import PolicyOptimizer
 from policy.demand_learning import demand_learning
 
 
@@ -33,6 +33,7 @@ class DynProgrammingMerchant:
         holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
         self.holding_cost_per_interval = self.UPDATE_INTERVAL_IN_SECONDS * (holding_cost_per_unit_per_minute / 60)
 
+        self.policy_optimizer = PolicyOptimizer()
         self.demand_function = None
         self.next_training = time.time() + self.MINUTES_BETWEEN_TRAININGS * 60
 
@@ -48,20 +49,14 @@ class DynProgrammingMerchant:
         thread.start()
         return thread
 
-    def update_policy(self, competitor_offers):
+    def create_policy(self, competitor_offers):
         start = time.time()
         dummy_offer = Offer()
         market_situation = [*competitor_offers, dummy_offer]
-        if self.demand_function:
-            order_policy, pricing_policy = create_policy(self.demand_function, self.product_cost, self.fixed_order_cost,
-                                                         self.holding_cost_per_interval, market_situation,
-                                                         dummy_offer.offer_id)
-        else:
-            print('Use default policy')
-            order_policy = lambda stock: 10 if stock == 0 else 0
-            selling_price_low = 25
-            selling_price_high = 35
-            pricing_policy = lambda stock: np.random.randint(selling_price_low, selling_price_high + 1)
+        order_policy, pricing_policy = \
+            self.policy_optimizer.create_policies(self.demand_function, self.product_cost, self.fixed_order_cost,
+                                                  self.holding_cost_per_interval, market_situation,
+                                                  dummy_offer.offer_id)
         print('Creating policy took {0:.2f} seconds'.format(time.time() - start))
         return order_policy, pricing_policy
 
@@ -69,7 +64,7 @@ class DynProgrammingMerchant:
         market_situation = self.marketplace.get_offers()
         own_offers = [offer for offer in market_situation if offer.merchant_id == self.merchant_id]
         competitor_offers = [offer for offer in market_situation if offer.merchant_id != self.merchant_id]
-        order_policy, pricing_policy = self.update_policy(competitor_offers)
+        order_policy, pricing_policy = self.create_policy(competitor_offers)
         inventory_level = sum(offer.amount for offer in own_offers)
         # Convert because json module cannot serialize numpy numbers
         order_quantity = int(order_policy(inventory_level))
@@ -84,7 +79,7 @@ class DynProgrammingMerchant:
             product = order.product
 
         if own_offers:
-            # There should be only one own offer
+            # This merchant has at most one active offer
             own_offers[0].price = new_price
             self.marketplace.update_offer(own_offers[0])
             if product:
