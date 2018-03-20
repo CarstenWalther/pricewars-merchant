@@ -12,6 +12,7 @@ def learn_demand_function(X_train, y_train):
 
     def demand_distribution(demand, features):
         mean = model.predict(features)
+        mean[mean < 0] = 0
         return poisson.pmf(demand.reshape((1, -1)), mean.reshape((-1, 1)))
 
     return demand_distribution
