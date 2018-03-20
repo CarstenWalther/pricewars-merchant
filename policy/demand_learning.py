@@ -11,13 +11,8 @@ def learn_demand_function(X_train, y_train):
     model.fit(X_train, y_train)
 
     def demand_distribution(demand, features):
-        # TODO: move reshaping to policy.py
-        # demand dimension (1, 1, 1, -1)
-        # features dimension (#entries, #features)
-        # mean dimension (1, 1, -1, 1)
-        # alternative: output 2 instead of 4 dimensions
-        mean = model.predict(features).reshape((1, 1, -1, 1))
-        return poisson.pmf(demand, mean)
+        mean = model.predict(features)
+        return poisson.pmf(demand.reshape((1, -1)), mean.reshape((-1, 1)))
 
     return demand_distribution
 

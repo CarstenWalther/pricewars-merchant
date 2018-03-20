@@ -4,17 +4,15 @@ import pandas as pd
 from policy.demand_learning import extract_features
 
 # TODO: transform to class
-previous_pricing_policy = np.random.randint(20, 40, 20)
+previous_pricing_policy = np.random.randint(20, 40, size=20)
 
 
-def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval, max_stock,
-                  market_situation, own_offer_id, selling_price_low=20, selling_price_high=40, max_iterations=10):
-    # TODO: don't use max_stock from outside
-    # TODO: maybe do reshaping in bellman function
-    remaining_stock = np.arange(max_stock + 1).reshape((-1, 1, 1, 1))
-    order_quantity = np.arange(max_stock + 1).reshape((1, -1, 1, 1))
-    selling_prices = np.arange(selling_price_low, selling_price_high).reshape((1, 1, -1, 1))
-    demand = np.arange(max_stock + 1).reshape((1, 1, 1, -1))
+def create_policy(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval, market_situation,
+                  own_offer_id, max_stock=40, selling_price_low=20, selling_price_high=40, max_iterations=10):
+    remaining_stock = np.arange(max_stock + 1)
+    order_quantity = np.arange(max_stock + 1)
+    selling_prices = np.arange(selling_price_low, selling_price_high)
+    demand = np.arange(max_stock + 1)
 
     expected_profits = np.zeros(len(remaining_stock))
     order_policy = np.zeros(len(remaining_stock))
@@ -69,25 +67,29 @@ def get_features(selling_prices, market_situation, own_offer_id):
 def bellman_equation(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval, selling_prices,
                      expected_profits, remaining_stock, order_quantity, demand, market_situation, own_offer_id,
                      iterations):
-    # TODO: remove dimension magic numbers
-    features = get_features(selling_prices[0, 0, :, 0], market_situation.copy(), own_offer_id)
-    probabilities = demand_distribution(demand, features)
-    sales = np.minimum(demand, remaining_stock + order_quantity)
+    remaining_stock_reshaped = remaining_stock.reshape((-1, 1, 1, 1))
+    order_quantity_reshaped = order_quantity.reshape((1, -1, 1, 1))
+    selling_prices_reshaped = selling_prices.reshape((1, 1, -1, 1))
+    demand_reshaped = demand.reshape((1, 1, 1, -1))
+
+    features = get_features(selling_prices, market_situation.copy(), own_offer_id)
+    probabilities = demand_distribution(demand, features).reshape(1, 1, len(features), -1)
+    sales = np.minimum(demand_reshaped, remaining_stock_reshaped + order_quantity_reshaped)
 
     for i in range(1, iterations + 1):
         all_expected_profits = np.sum(probabilities * (
-                profit(remaining_stock, sales, order_quantity, selling_prices, product_cost, fixed_order_cost,
-                       holding_cost_per_interval)
-                + i * expected_profits[np.minimum(remaining_stock + order_quantity - sales, len(expected_profits) - 1)]
+                profit(remaining_stock_reshaped, sales, order_quantity_reshaped, selling_prices_reshaped, product_cost,
+                       fixed_order_cost, holding_cost_per_interval)
+                + i * expected_profits[
+                    np.minimum(remaining_stock_reshaped + order_quantity_reshaped - sales, len(expected_profits) - 1)]
         ), axis=3) / (i + 1)
         expected_profits = np.max(all_expected_profits, axis=(1, 2))
 
     # Combine order_quantity and price dimension, because we cannot get argmax over multiple dimensions
-    policy = np.argmax(all_expected_profits.reshape(remaining_stock.shape[0], -1), axis=1)
-    order_policy_indices, price_policy_indices = \
-        np.unravel_index(policy, (remaining_stock.shape[0], selling_prices.shape[2]))
-    order_policy = order_quantity[0, :, 0, 0][order_policy_indices]
-    price_policy = selling_prices[0, 0, :, 0][price_policy_indices]
+    policy = np.argmax(all_expected_profits.reshape(len(remaining_stock), -1), axis=1)
+    order_policy_indices, price_policy_indices = np.unravel_index(policy, (len(remaining_stock), len(selling_prices)))
+    order_policy = order_quantity[order_policy_indices]
+    price_policy = selling_prices[price_policy_indices]
     return order_policy, price_policy, expected_profits
 
 
@@ -110,14 +112,13 @@ def sales_revenue(sales, selling_price):
 
 
 def adapt_order_search_space(order_quantity, order_policy):
-    # TODO: remove reshape stuff from this function
     # When calculating the minimum order size, ignore non-orders, i.e. orders of zero products
     orders_greater_zero = order_policy[order_policy > 0]
     min_order = np.min(orders_greater_zero) if orders_greater_zero.size > 0 else 1
     max_order = np.max(order_policy)
 
-    lower_limit = order_quantity[0, 1, 0, 0]
-    upper_limit = order_quantity[0, -1, 0, 0]
+    lower_limit = order_quantity[1]
+    upper_limit = order_quantity[-1]
 
     if min_order <= lower_limit:
         order_start = min_order // 2
@@ -134,14 +135,13 @@ def adapt_order_search_space(order_quantity, order_policy):
 
     # The array must always contain a zero so that the merchant is able to not order products.
     # Make some space in the array and set the first element to zero.
-    new_order_quantity = np.arange(order_start - 1, order_end + 1).reshape((1, -1, 1, 1))
-    new_order_quantity[0, 0, 0, 0] = 0
+    new_order_quantity = np.arange(order_start - 1, order_end + 1)
+    new_order_quantity[0] = 0
     return new_order_quantity
 
 
 def adapt_price_search_space(pricing_policy):
-    # TODO: remove reshape stuff from this function
-    # TODO: faster growth when at decision state limit
-    selling_price_low = max(0, np.min(pricing_policy) - 3)
-    selling_price_high = np.max(pricing_policy) + 3
-    return np.arange(selling_price_low, selling_price_high).reshape((1, 1, -1, 1))
+    price_buffer = 5
+    selling_price_low = max(0, np.min(pricing_policy) - price_buffer)
+    selling_price_high = np.max(pricing_policy) + price_buffer
+    return np.arange(selling_price_low, selling_price_high + 1)

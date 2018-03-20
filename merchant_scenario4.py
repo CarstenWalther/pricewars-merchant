@@ -23,7 +23,6 @@ class DynProgrammingMerchant:
         self.producer = Producer(self.token, producer_url)
         self.kafka_reverse_proxy = Kafka(self.token)
 
-        self.MAX_STOCK = 40
         self.UPDATE_INTERVAL_IN_SECONDS = 4
         self.MINUTES_BETWEEN_TRAININGS = 2
 
@@ -55,8 +54,8 @@ class DynProgrammingMerchant:
         market_situation = [*competitor_offers, dummy_offer]
         if self.demand_function:
             order_policy, pricing_policy = create_policy(self.demand_function, self.product_cost, self.fixed_order_cost,
-                                                         self.holding_cost_per_interval, self.MAX_STOCK,
-                                                         market_situation, dummy_offer.offer_id)
+                                                         self.holding_cost_per_interval, market_situation,
+                                                         dummy_offer.offer_id)
         else:
             print('Use default policy')
             order_policy = lambda stock: 10 if stock == 0 else 0
