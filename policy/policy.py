@@ -51,7 +51,7 @@ class PolicyOptimizer:
                 # The policy has converged
                 break
 
-            order_quantity = adapt_order_search_space(order_quantity, order_policy)
+            order_quantity = adapt_order_search_space(order_policy)
             selling_prices = adapt_price_search_space(pricing_policy)
 
         if not pricing_policy.any():
@@ -123,31 +123,17 @@ def sales_revenue(sales, selling_price):
     return sales * selling_price
 
 
-def adapt_order_search_space(order_quantity, order_policy):
+def adapt_order_search_space(order_policy):
+    order_buffer = 5
     # When calculating the minimum order size, ignore non-orders, i.e. orders of zero products
     orders_greater_zero = order_policy[order_policy > 0]
-    min_order = np.min(orders_greater_zero) if orders_greater_zero.size > 0 else 1
-    max_order = np.max(order_policy)
-
-    lower_limit = order_quantity[1]
-    upper_limit = order_quantity[-1]
-
-    if min_order <= lower_limit:
-        order_start = min_order // 2
-    else:
-        # Add some unused order quantities as option
-        # TODO: use something that depends on min_order size (e.g. min_order * 10%)
-        order_start = max(min_order - 3, 1)
-
-    if max_order == upper_limit:
-        order_end = max_order * 2
-    else:
-        # TODO: see order_start
-        order_end = max_order + 3
+    lowest_order = np.min(orders_greater_zero) if orders_greater_zero.size > 0 else 1
+    min_order = np.max(1, lowest_order - order_buffer)
+    max_order = np.max(order_policy) + order_buffer
 
     # The array must always contain a zero so that the merchant is able to not order products.
     # Make some space in the array and set the first element to zero.
-    new_order_quantity = np.arange(order_start - 1, order_end + 1)
+    new_order_quantity = np.arange(min_order - 1, max_order + 1)
     new_order_quantity[0] = 0
     return new_order_quantity
 
