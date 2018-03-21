@@ -17,6 +17,10 @@ class PolicyOptimizer:
         self.max_stock = max_stock
         self.selling_price_low = selling_price_low
         self.selling_price_high = selling_price_high
+        self.remaining_stock = np.arange(self.max_stock + 1)
+        self.order_quantity = np.arange(self.max_stock + 1)
+        self.selling_prices = np.arange(self.selling_price_low, self.selling_price_high + 1)
+        self.demand = np.arange(self.max_stock + 1)
         self.expected_profits = np.zeros(max_stock + 1)
 
     def create_policies(self, demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
@@ -25,13 +29,8 @@ class PolicyOptimizer:
             print('Use default policy')
             return default_order_policy, default_pricing_policy(self.selling_price_low, self.selling_price_high)
 
-        remaining_stock = np.arange(self.max_stock + 1)
-        order_quantity = np.arange(self.max_stock + 1)
-        selling_prices = np.arange(self.selling_price_low, self.selling_price_high)
-        demand = np.arange(self.max_stock + 1)
-
-        order_policy = np.zeros(len(remaining_stock))
-        pricing_policy = np.zeros(len(remaining_stock))
+        order_policy = np.zeros(len(self.remaining_stock))
+        pricing_policy = np.zeros(len(self.remaining_stock))
 
         market_situation = pd.DataFrame([offer.to_dict() for offer in market_situation])
         market_situation.set_index(['offer_id'], inplace=True)
@@ -41,8 +40,8 @@ class PolicyOptimizer:
             old_price_policy = pricing_policy
             order_policy, pricing_policy, self.expected_profits = \
                 policy_optimization(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
-                                    selling_prices, self.expected_profits, remaining_stock, order_quantity, demand,
-                                    market_situation, own_offer_id, iterations=100)
+                                    self.selling_prices, self.expected_profits, self.remaining_stock,
+                                    self.order_quantity, self.demand, market_situation, own_offer_id, iterations=20)
             print(order_policy)
             print(pricing_policy)
             print('expected profit', self.expected_profits[0])
@@ -51,8 +50,8 @@ class PolicyOptimizer:
                 # The policy has converged
                 break
 
-            order_quantity = adapt_order_search_space(order_policy)
-            selling_prices = adapt_price_search_space(pricing_policy)
+            self.order_quantity = adapt_order_search_space(order_policy)
+            self.selling_prices = adapt_price_search_space(pricing_policy)
 
         if not pricing_policy.any():
             print('Warning: avoid selling products for 0€. Use default policy')
@@ -95,7 +94,7 @@ def policy_optimization(demand_distribution, product_cost, fixed_order_cost, hol
                 + i * expected_profits[
                     np.minimum(remaining_stock_reshaped + order_quantity_reshaped - sales, len(expected_profits) - 1)]
         ), axis=3) / (i + 1)
-        expected_profits = np.max(all_expected_profits, axis=(1, 2))
+        expected_profits = np.amax(all_expected_profits, axis=(1, 2))
 
     # Combine order_quantity and price dimension, because we cannot get argmax over multiple dimensions
     policy = np.argmax(all_expected_profits.reshape(len(remaining_stock), -1), axis=1)
@@ -127,9 +126,9 @@ def adapt_order_search_space(order_policy):
     order_buffer = 5
     # When calculating the minimum order size, ignore non-orders, i.e. orders of zero products
     orders_greater_zero = order_policy[order_policy > 0]
-    lowest_order = np.min(orders_greater_zero) if orders_greater_zero.size > 0 else 1
-    min_order = np.max(1, lowest_order - order_buffer)
-    max_order = np.max(order_policy) + order_buffer
+    lowest_order = np.amin(orders_greater_zero) if orders_greater_zero.size > 0 else 1
+    min_order = max(1, lowest_order - order_buffer)
+    max_order = np.amax(order_policy) + order_buffer
 
     # The array must always contain a zero so that the merchant is able to not order products.
     # Make some space in the array and set the first element to zero.
@@ -140,6 +139,6 @@ def adapt_order_search_space(order_policy):
 
 def adapt_price_search_space(pricing_policy):
     price_buffer = 5
-    selling_price_low = max(0, np.min(pricing_policy) - price_buffer)
-    selling_price_high = np.max(pricing_policy) + price_buffer
+    selling_price_low = max(0, np.amin(pricing_policy) - price_buffer)
+    selling_price_high = np.amax(pricing_policy) + price_buffer
     return np.arange(selling_price_low, selling_price_high + 1)
