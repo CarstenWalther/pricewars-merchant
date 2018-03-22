@@ -39,7 +39,8 @@ def extract_features(market_situation, own_offer_id):
     own_offer = market_situation.loc[own_offer_id]
     competitor_offers = market_situation.loc[market_situation.index != own_offer_id]
     price_rank = (competitor_offers['price'] <= own_offer['price']).sum() if competitor_offers.size != 0 else 0
-    return own_offer['price'], price_rank
+    price_difference_to_cheapest = own_offer['price'] - market_situation['price'].min()
+    return own_offer['price'], price_rank, price_difference_to_cheapest
 
 
 def aggregate_sales_data(merchant_id, market_situations, sales_data):

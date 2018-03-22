@@ -16,7 +16,7 @@ class DynProgrammingMerchant:
 
         self.marketplace = Marketplace(host=marketplace_url)
         self.marketplace.wait_for_host()
-        response = self.marketplace.register(port, name, algorithm_name='strategy calculated with dynamic programming')
+        response = self.marketplace.register(port, name, algorithm_name='Dynamic Programming')
         self.merchant_id = response.merchant_id
         self.token = response.merchant_token
         self.marketplace = Marketplace(self.token, marketplace_url)
@@ -132,7 +132,7 @@ class DynProgrammingMerchant:
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='PriceWars Merchant')
-    parser.add_argument('--name', type=str, default='Scenario 4 Merchant', help='Merchant name')
+    parser.add_argument('--name', type=str, default='Data-Driven Merchant', help='Merchant name')
     parser.add_argument('--port', type=int, required=True, help='port to bind flask App to')
     parser.add_argument('--marketplace', type=str, default=Marketplace.DEFAULT_URL, help='Marketplace URL')
     parser.add_argument('--producer', type=str, default=Producer.DEFAULT_URL, help='Producer URL')
