@@ -60,15 +60,15 @@ class PricewarsMerchant:
 
         inventory_level = sum(offer.amount for offer in own_offers)
         if inventory_level <= self.settings['order threshold']:
-            self.restock(market_situation)
+            self.restock(inventory_level, market_situation)
 
         for offer in own_offers:
             offer.price = self.calculate_price(offer.offer_id, market_situation)
             print('Competitor update price to', offer.price)
             self.marketplace.update_offer(offer)
 
-    def restock(self, market_situation):
-        order = self.producer.order(self.settings['restock limit'])
+    def restock(self, inventory_level, market_situation):
+        order = self.producer.order(self.settings['restock limit'] - inventory_level)
         product = order.product
         shipping_time = {
             'standard': self.settings['shipping'],
