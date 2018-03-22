@@ -10,8 +10,7 @@ from server import MerchantServer
 from models import SoldOffer, Offer
 
 
-class PricewarsMerchant:
-    __metaclass__ = ABCMeta
+class PricewarsMerchant(metaclass=ABCMeta):
 
     def __init__(self, port: int, token: Optional[str], marketplace_url: str, producer_url: str, name: str):
         self.settings = {
