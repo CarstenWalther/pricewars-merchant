@@ -51,6 +51,61 @@ class TwoBoundStrategy:
         else:
             return cheapest_offer.price - merchant.settings['price decrement']
 
+class TwoBoundStrategyA:
+    name = 'Two Bound Merchant A'
+
+    settings = {
+        'price decrement': 0.20,
+        'upper price bound': 35,
+        'lower price bound': 15,
+        'update interval': 10,
+        'restock limit': 20,
+        'order threshold': 5,
+    }
+
+    @staticmethod
+    def calculate_price(merchant, offer_id, market_situation):
+        product_id = [offer for offer in market_situation if offer.offer_id == offer_id][0].product_id
+        relevant_competitor_offers = [offer for offer in market_situation if
+                                      offer.product_id == product_id and
+                                      offer.merchant_id != merchant.merchant_id]
+        if not relevant_competitor_offers:
+            return merchant.settings['upper price bound']
+
+        cheapest_offer = min(relevant_competitor_offers, key=lambda offer: offer.price)
+        if cheapest_offer.price <= merchant.settings['lower price bound']:
+            return merchant.settings['upper price bound']
+        else:
+            return min(cheapest_offer.price - merchant.settings['price decrement'], merchant.settings['upper price bound'])
+
+class TwoBoundStrategyB:
+    name = 'Two Bound Merchant B'
+
+    settings = {
+        'price decrement': 0.20,
+        'upper price bound': 30,
+        'lower price bound': 10,
+        'update interval': 4,
+        'restock limit': 15,
+        'order threshold': 0,
+    }
+
+    @staticmethod
+    def calculate_price(merchant, offer_id, market_situation):
+        product_id = [offer for offer in market_situation if offer.offer_id == offer_id][0].product_id
+        relevant_competitor_offers = [offer for offer in market_situation if
+                                      offer.product_id == product_id and
+                                      offer.merchant_id != merchant.merchant_id]
+        if not relevant_competitor_offers:
+            return merchant.settings['upper price bound']
+
+        cheapest_offer = min(relevant_competitor_offers, key=lambda offer: offer.price)
+        if cheapest_offer.price <= merchant.settings['lower price bound']:
+            return merchant.settings['upper price bound']
+        else:
+            return min(cheapest_offer.price - merchant.settings['price decrement'],
+                       merchant.settings['upper price bound'])
+
 
 class RandomStrategy:
     name = 'Random'
@@ -89,6 +144,8 @@ def main():
     strategies = {
         CheapestStrategy.name: CheapestStrategy,
         TwoBoundStrategy.name: TwoBoundStrategy,
+        TwoBoundStrategyA.name: TwoBoundStrategyA,
+        TwoBoundStrategyB.name: TwoBoundStrategyB,
         RandomStrategy.name: RandomStrategy,
     }
     merchant = Merchant(args.token, args.port, args.marketplace, args.producer, strategies[args.strategy])
