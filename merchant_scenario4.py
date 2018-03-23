@@ -1,7 +1,6 @@
 import argparse
 import threading
 import time
-import numpy as np
 
 from server import MerchantServer
 from api import Marketplace, Producer, Kafka
@@ -77,6 +76,8 @@ class DynProgrammingMerchant:
             print('Order', order_quantity, 'units')
             order = self.producer.order(order_quantity)
             product = order.product
+            self.fixed_order_cost = order.fixed_cost
+            self.product_cost = order.unit_price
 
         if own_offers:
             # This merchant has at most one active offer
