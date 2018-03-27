@@ -97,7 +97,7 @@ def policy_optimization(demand_distribution, product_cost, fixed_order_cost, hol
 
     # Combine order_quantity and price dimension, because we cannot get argmax over multiple dimensions
     policy = np.argmax(all_expected_profits.reshape(len(remaining_stock), -1), axis=1)
-    order_policy_indices, price_policy_indices = np.unravel_index(policy, (len(remaining_stock), len(selling_prices)))
+    order_policy_indices, price_policy_indices = np.unravel_index(policy, (len(order_quantity), len(selling_prices)))
     order_policy = order_quantity[order_policy_indices]
     price_policy = selling_prices[price_policy_indices]
     return order_policy, price_policy, expected_profits
