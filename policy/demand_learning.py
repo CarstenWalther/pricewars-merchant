@@ -26,7 +26,7 @@ def aggregate_sales_to_market_situations(sales_data, market_situations):
     Sales are counted for each offer separately.
     """
     grouped = sales_data.groupby(
-        ['offer_id', pd.cut(sales_data['timestamp'].astype('datetime64[ns]'), market_situations['timestamp'].unique().astype('datetime64[ns]'), right=False)])
+        ['offer_id', pd.cut(sales_data['timestamp'], market_situations['timestamp'].unique(), right=False)])
     sales_by_interval = grouped['amount'].sum()
     # Calculate the time span from the start and end of the interval
     time_spans = sales_by_interval.index.get_level_values('timestamp') \
