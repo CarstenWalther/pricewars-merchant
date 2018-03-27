@@ -83,9 +83,8 @@ class DynProgrammingMerchant:
             # This merchant has at most one active offer
             own_offers[0].price = new_price
             self.marketplace.update_offer(own_offers[0])
-            if product:
-                self.marketplace.restock(own_offers[0].offer_id, product.amount, product.signature)
-        elif product:
+
+        if product:
             offer = Offer.from_product(product, new_price, self.shipping_time)
             self.marketplace.add_offer(offer)
 
