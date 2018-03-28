@@ -56,8 +56,8 @@ class TwoBoundStrategyA:
 
     settings = {
         'price decrement': 0.20,
-        'upper price bound': 35,
-        'lower price bound': 15,
+        'upper price bound': 27,
+        'lower price bound': 16,
         'update interval': 10,
         'restock limit': 20,
         'order threshold': 5,
@@ -83,10 +83,10 @@ class TwoBoundStrategyB:
 
     settings = {
         'price decrement': 0.20,
-        'upper price bound': 30,
-        'lower price bound': 10,
+        'upper price bound': 25,
+        'lower price bound': 14,
         'update interval': 4,
-        'restock limit': 15,
+        'restock limit': 10,
         'order threshold': 0,
     }
 
