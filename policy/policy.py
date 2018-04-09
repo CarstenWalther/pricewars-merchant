@@ -24,7 +24,7 @@ class PolicyOptimizer:
         self.expected_profits = np.zeros(max_stock + 1)
 
     def create_policies(self, demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
-                        market_situation, own_offer_id, max_iterations=30):
+                        market_situation, own_offer_id, max_iterations=10):
         if not demand_distribution:
             print('Use default policy')
             return default_order_policy, default_pricing_policy(self.selling_price_low, self.selling_price_high)
@@ -84,7 +84,7 @@ def policy_optimization(demand_distribution, product_cost, fixed_order_cost, hol
 
     features = get_features(selling_prices, market_situation.copy(), own_offer_id)
     probabilities = demand_distribution(demand, features).reshape(1, 1, len(features), -1)
-    sales = np.minimum(demand_reshaped, remaining_stock_reshaped + order_quantity_reshaped)
+    sales = np.minimum(demand_reshaped, remaining_stock_reshaped)
 
     for i in range(1, iterations + 1):
         all_expected_profits = np.sum(probabilities * (
@@ -106,15 +106,15 @@ def policy_optimization(demand_distribution, product_cost, fixed_order_cost, hol
 def profit(remaining_stock, sales, order_quantity, selling_price, product_cost, fixed_order_cost,
            holding_cost_per_interval):
     return sales_revenue(sales, selling_price) - order_cost(order_quantity, product_cost, fixed_order_cost) \
-           - holding_cost(remaining_stock, order_quantity, holding_cost_per_interval)
+           - holding_cost(remaining_stock, holding_cost_per_interval)
 
 
 def order_cost(order_quantity, product_cost, fixed_order_cost):
     return order_quantity * product_cost + (order_quantity > 0) * fixed_order_cost
 
 
-def holding_cost(remaining_stock, order_quantity, holding_cost_per_interval):
-    return (remaining_stock + order_quantity) * holding_cost_per_interval
+def holding_cost(remaining_stock, holding_cost_per_interval):
+    return remaining_stock * holding_cost_per_interval
 
 
 def sales_revenue(sales, selling_price):
