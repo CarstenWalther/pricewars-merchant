@@ -42,8 +42,8 @@ class PolicyOptimizer:
                 policy_optimization(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
                                     self.selling_prices, self.expected_profits, self.remaining_stock,
                                     self.order_quantity, self.demand, market_situation, own_offer_id, iterations=20)
-            #print(order_policy)
-            #print(pricing_policy)
+            print(order_policy)
+            print(pricing_policy)
 
             if np.array_equal(order_policy, old_order_policy) and np.array_equal(pricing_policy, old_price_policy):
                 # The policy has converged
@@ -52,15 +52,15 @@ class PolicyOptimizer:
             self.order_quantity = adapt_order_search_space(order_policy)
             self.selling_prices = adapt_price_search_space(pricing_policy)
 
-        if not pricing_policy.any():
-            print('Warning: avoid selling products for 0€. Use default policy')
-            return default_order_policy, default_pricing_policy(self.selling_price_low, self.selling_price_high)
-
         def order_policy_function(stock):
             return order_policy[np.clip(stock, 0, len(order_policy) - 1)]
 
         def pricing_policy_function(stock):
             return pricing_policy[np.clip(stock, 0, len(pricing_policy) - 1)]
+
+        if not pricing_policy.any():
+            print('Warning: avoid selling products for 0€. Use default pricing policy')
+            return order_policy_function, default_pricing_policy(self.selling_price_low, self.selling_price_high)
 
         return order_policy_function, pricing_policy_function
 
