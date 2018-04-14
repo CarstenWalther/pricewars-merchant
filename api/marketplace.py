@@ -32,11 +32,11 @@ class Marketplace(PricewarsBaseApi):
         }
         self.request('patch', 'offers/{:d}/restock'.format(offer_id), json=body)
 
-    def holding_cost_rate(self) -> float:
+    def holding_cost_rate(self, merchant_id: str) -> float:
         """
         :return: The holding cost per unit in the inventory per minute
         """
-        response = self.request('get', 'holding_cost_rate')
+        response = self.request('get', 'holding_cost_rate/' + merchant_id)
         return response.json()
 
     def register(self, endpoint_url_or_port: Union[str, int], merchant_name: str,

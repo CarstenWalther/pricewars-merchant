@@ -29,7 +29,7 @@ class DynProgrammingMerchant:
         product_info = self.producer.get_products()[0]
         self.fixed_order_cost = product_info.fixed_order_cost
         self.product_cost = product_info.price
-        holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
+        holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate(self.merchant_id)
         self.holding_cost_per_interval = self.UPDATE_INTERVAL_IN_SECONDS * (holding_cost_per_unit_per_minute / 60)
 
         self.policy_optimizer = PolicyOptimizer()

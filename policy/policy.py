@@ -42,8 +42,6 @@ class PolicyOptimizer:
                 policy_optimization(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
                                     self.selling_prices, self.expected_profits, self.remaining_stock,
                                     self.order_quantity, self.demand, market_situation, own_offer_id, iterations=20)
-            print(order_policy)
-            print(pricing_policy)
 
             if np.array_equal(order_policy, old_order_policy) and np.array_equal(pricing_policy, old_price_policy):
                 # The policy has converged
