@@ -2,10 +2,10 @@ import argparse
 import threading
 import time
 
-from pricewars import MerchantServer
-from pricewars.api import Marketplace, Producer
-from pricewars.models import SoldOffer
-from pricewars.models import Offer
+from server import MerchantServer
+from api import Marketplace, Producer
+from models import SoldOffer
+from models import Offer
 
 
 def calculate_order_quantity(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute):
@@ -34,7 +34,7 @@ class EOQMerchant:
         demand_per_minute = 60
         # only one product can be bought in this scenario
         fixed_order_cost = self.producer.get_products()[0].fixed_order_cost
-        holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
+        holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate(self.merchant_id)
         self.order_quantity = calculate_order_quantity(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute)
         print(demand_per_minute, fixed_order_cost, holding_cost_per_unit_per_minute, self.order_quantity)
         self.shipping_time = {
