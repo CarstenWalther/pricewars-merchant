@@ -37,6 +37,11 @@ def create_policies(demand_distribution, product_cost, fixed_order_cost, holding
     order_policy = order_quantity[0,:,0,0][order_policy_indices]
     pricing_policy = selling_prices[0,0,:,0][price_policy_indices]
 
+    print('Ordering policy:')
+    print(order_policy)
+    print('Pricing policy:')
+    print(pricing_policy)
+
     def order_policy_function(stock):
         return int(order_policy[np.clip(stock, 0, len(order_policy) - 1)])
 
