@@ -3,12 +3,39 @@ import threading
 import time
 import numpy as np
 
-from pricewars import MerchantServer
-from pricewars.api import Marketplace, Producer
-from pricewars.models import SoldOffer
-from pricewars.models import Offer
-from policy.demand_estimation import estimate_demand_distribution
-from policy.order_policy import create_policy
+from server import MerchantServer
+from api import Marketplace, Producer
+from models import SoldOffer
+from models import Offer
+from policy.policy_monopoly import create_policies
+
+"""
+This merchant operates in the following scenario:
+- costumer demand distribution is known
+- selling price is fixed
+- monopoly
+The merchant uses dynamic programming to calculate optimal ordering policies
+"""
+
+# the distribution of the customer arrival times is known
+def time_between_visits():
+    mean_customers_per_second = 100 / 60
+    return np.random.exponential(scale=mean_customers_per_second)
+
+
+def estimate_demand_distribution(interval_length_in_seconds, array_length, iterations=10000):
+    event_counter = np.zeros(array_length)
+    interval_time = 0.0
+    event_count = 0
+    for _ in range(iterations):
+        interval_time += time_between_visits()
+        while interval_time >= interval_length_in_seconds:
+            event_counter[min(event_count, array_length-1)] += 1
+            event_count = 0
+            interval_time -= interval_length_in_seconds
+        event_count += 1
+
+    return event_counter / np.sum(event_counter)
 
 
 class DynProgrammingMerchant:
@@ -30,30 +57,24 @@ class DynProgrammingMerchant:
         # fix selling price
         self.SELLING_PRICE = 30
 
-        # customer behavior is a known distribution
-        def time_between_visits():
-            return np.random.exponential(scale=1.0)
-
         # only one product can be bought in this scenario
         product_info = self.producer.get_products()[0]
         fixed_order_cost = product_info.fixed_order_cost
         product_cost = product_info.price
-        holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate()
+        holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate(self.merchant_id)
         holding_cost_per_interval = self.INTERVAL_LENGTH_IN_SECONDS * (holding_cost_per_unit_per_minute / 60)
 
-        demand_distribution = estimate_demand_distribution(time_between_visits, self.INTERVAL_LENGTH_IN_SECONDS,
-                                                           MAX_STOCK + 1)
+        demand_distribution = estimate_demand_distribution(self.INTERVAL_LENGTH_IN_SECONDS, MAX_STOCK + 1)
 
-        def distribution_function(demand):
+        def distribution_function(demand, price):
             return demand_distribution[demand]
 
-        policy_array = create_policy(distribution_function, self.SELLING_PRICE, product_cost, fixed_order_cost,
-                                     holding_cost_per_interval, MAX_STOCK)
+        # The pricing policy will be self.SELLING_PRICE for all decisions, because we reduce the price space to this one price.
+        order_policy, pricing_policy = create_policies(distribution_function, product_cost, fixed_order_cost,
+                                     holding_cost_per_interval, MAX_STOCK, self.SELLING_PRICE, self.SELLING_PRICE)
 
-        def policy_function(remaining_stock):
-            return policy_array[np.clip(remaining_stock, 0, MAX_STOCK)]
-
-        self.policy = policy_function
+        self.order_policy = order_policy
+        self.pricing_policy = pricing_policy
 
         self.shipping_time = {
             'standard': 5,
@@ -68,12 +89,12 @@ class DynProgrammingMerchant:
         return thread
 
     def update(self):
-        order_quantity = self.policy(self.inventory)
+        order_quantity = self.order_policy(self.inventory)
         if order_quantity > 0:
             print('order', order_quantity, 'units')
             order = self.producer.order(order_quantity)
             product = order.product
-            offer = Offer.from_product(product, self.SELLING_PRICE, self.shipping_time)
+            offer = Offer.from_product(product, self.pricing_policy(self.inventory), self.shipping_time)
             offer = self.marketplace.add_offer(offer)
             self.inventory += offer.amount
 
