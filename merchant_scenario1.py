@@ -20,7 +20,7 @@ The merchant uses dynamic programming to calculate optimal ordering policies
 # the distribution of the customer arrival times is known
 def time_between_visits():
     mean_customers_per_second = 100 / 60
-    return np.random.exponential(scale=mean_customers_per_second)
+    return np.random.exponential(scale= 1/mean_customers_per_second)
 
 
 def estimate_demand_distribution(interval_length_in_seconds, array_length, iterations=10000):
