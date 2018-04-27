@@ -50,7 +50,8 @@ class TwoBoundStrategy:
             return merchant.settings['upper price bound']
 
         cheapest_offer = min(relevant_competitor_offers, key=lambda offer: offer.price)
-        if cheapest_offer.price <= merchant.settings['lower price bound']:
+        if cheapest_offer.price <= merchant.settings['lower price bound'] or \
+                cheapest_offer.price > merchant.settings['upper price bound']:
             return merchant.settings['upper price bound']
         else:
             return cheapest_offer.price - merchant.settings['price decrement']
