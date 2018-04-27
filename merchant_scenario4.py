@@ -21,6 +21,7 @@ class DynProgrammingMerchant:
         self.marketplace = Marketplace(self.token, marketplace_url)
         self.producer = Producer(self.token, producer_url)
         self.kafka_reverse_proxy = Kafka(self.token)
+        self.pending_order_id = None
 
         self.UPDATE_INTERVAL_IN_SECONDS = 4
         self.MINUTES_BETWEEN_TRAININGS = 1
@@ -72,9 +73,12 @@ class DynProgrammingMerchant:
         print('Update price to', new_price)
 
         product = None
-        if order_quantity > 0:
+        if self.pending_order_id is None and order_quantity > 0:
             print('Order', order_quantity, 'units')
-            order = self.producer.order(order_quantity)
+            self.pending_order_id = self.producer.order(order_quantity).id
+        elif self.pending_order_id is not None:
+            order = self.producer.receive_items(self.pending_order_id)
+            self.pending_order_id = None
             product = order.product
             self.fixed_order_cost = order.fixed_cost
             self.product_cost = order.unit_price
