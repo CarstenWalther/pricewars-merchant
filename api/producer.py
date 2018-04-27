@@ -16,6 +16,10 @@ class Producer(PricewarsBaseApi):
         r = self.request('post', 'orders', data={'amount': amount})
         return Order.from_dict(r.json())
 
+    def receive_items(self, order_id: int) -> Order:
+        r = self.request('post', 'orders/' + str(order_id))
+        return Order.from_dict(r.json())
+
     def get_products(self) -> List[ProductInfo]:
         r = self.request('get', 'products')
         return ProductInfo.from_list(r.json())

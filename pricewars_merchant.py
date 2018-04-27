@@ -22,6 +22,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
         }
         self.state = 'running'
         self.server_thread = self.start_server(port)
+        self.pending_order = None
 
         self.marketplace = Marketplace(token, host=marketplace_url)
         self.marketplace.wait_for_host()
@@ -58,16 +59,20 @@ class PricewarsMerchant(metaclass=ABCMeta):
         own_offers = [offer for offer in market_situation if offer.merchant_id == self.merchant_id]
 
         inventory_level = sum(offer.amount for offer in own_offers)
-        if inventory_level <= self.settings['order threshold']:
-            self.restock(inventory_level, market_situation)
+        if self.pending_order is None and inventory_level <= self.settings['order threshold']:
+            order_id = self.producer.order(self.settings['restock limit'] - inventory_level).id
+            self.pending_order = order_id
+        elif self.pending_order is not None:
+            self.restock(self.pending_order, market_situation)
+            self.pending_order = None
 
         for offer in own_offers:
             offer.price = self.calculate_price(offer.offer_id, market_situation)
             print('Competitor update price to', offer.price)
             self.marketplace.update_offer(offer)
 
-    def restock(self, inventory_level, market_situation):
-        order = self.producer.order(self.settings['restock limit'] - inventory_level)
+    def restock(self, order_id, market_situation):
+        order = self.producer.receive_items(order_id)
         product = order.product
         shipping_time = {
             'standard': self.settings['shipping'],
