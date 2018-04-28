@@ -59,25 +59,40 @@ class PricewarsMerchant(metaclass=ABCMeta):
         own_offers = [offer for offer in market_situation if offer.merchant_id == self.merchant_id]
 
         inventory_level = sum(offer.amount for offer in own_offers)
+        product = None
         if self.pending_order is None and inventory_level <= self.settings['order threshold']:
             order_id = self.producer.order(self.settings['restock limit'] - inventory_level).id
             self.pending_order = order_id
         elif self.pending_order is not None:
-            self.restock(self.pending_order, market_situation)
+            order = self.producer.receive_items(self.pending_order)
+            product = order.product
+            #self.restock(self.pending_order, market_situation)
             self.pending_order = None
 
-        for offer in own_offers:
-            offer.price = self.calculate_price(offer.offer_id, market_situation)
-            print('Competitor update price to', offer.price)
+        if own_offers:
+            # This merchant has at most one active offer
+            offer = own_offers[0]
+            new_price = self.calculate_price(offer.offer_id, market_situation)
+            print('Competitor update price to', new_price)
+            offer.price = new_price
             self.marketplace.update_offer(offer)
+            if product:
+                self.marketplace.restock(offer.offer_id, product.amount, product.signature)
+        elif product:
+            shipping_time = {
+                'standard': self.settings['shipping'],
+                'prime': self.settings['primeShipping']
+            }
+            offer = Offer.from_product(product, 0, shipping_time)
+            offer.merchant_id = self.merchant_id
+            offer.price = self.calculate_price(offer.offer_id, market_situation + [offer])
+            print('Competitor update price to', offer.price)
+            self.marketplace.add_offer(offer)
 
     def restock(self, order_id, market_situation):
         order = self.producer.receive_items(order_id)
         product = order.product
-        shipping_time = {
-            'standard': self.settings['shipping'],
-            'prime': self.settings['primeShipping']
-        }
+
         offer = Offer.from_product(product, 0, shipping_time)
         offer.merchant_id = self.merchant_id
         offer.price = self.calculate_price(offer.offer_id, market_situation + [offer])

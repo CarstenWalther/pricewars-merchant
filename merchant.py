@@ -14,6 +14,7 @@ class CheapestStrategy:
         'default price': 30,
         'restock limit': 20,
         'order threshold': 5,
+        'update interval': 4,
     }
 
     @staticmethod
@@ -38,6 +39,7 @@ class TwoBoundStrategy:
         'lower price bound': 20,
         'restock limit': 15,
         'order threshold': 3,
+        'update interval': 4,
     }
 
     @staticmethod

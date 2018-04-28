@@ -43,7 +43,12 @@ class PolicyOptimizer:
                                     self.selling_prices, self.expected_profits, self.remaining_stock,
                                     self.order_quantity, self.demand, market_situation, own_offer_id, iterations=20)
 
-            if np.array_equal(order_policy, old_order_policy) and np.array_equal(pricing_policy, old_price_policy):
+            #print(order_policy)
+            #print(pricing_policy)
+
+            # Ignore the first price (i.e. price at inventory level 0) because no items can be offered.
+            # The first price will fluctuate a lot and delay the policy convergence
+            if np.array_equal(order_policy, old_order_policy) and np.array_equal(pricing_policy[1:], old_price_policy[1:]):
                 # The policy has converged
                 break
 
