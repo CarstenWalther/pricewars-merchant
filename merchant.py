@@ -10,7 +10,7 @@ class CheapestStrategy:
     name = 'Cheapest'
 
     settings = {
-        'price decrement': 0.05,
+        'price decrement': 0.3,
         'default price': 30,
         'restock limit': 20,
         'order threshold': 5,
@@ -34,9 +34,9 @@ class TwoBoundStrategy:
     name = 'Two Bound'
 
     settings = {
-        'price decrement': 0.10,
+        'price decrement': 0.3,
         'upper price bound': 30,
-        'lower price bound': 20,
+        'lower price bound': 17,
         'restock limit': 15,
         'order threshold': 3,
         'update interval': 4,
