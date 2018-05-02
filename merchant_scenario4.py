@@ -68,9 +68,6 @@ class DynProgrammingMerchant:
         inventory_level = sum(offer.amount for offer in own_offers)
         # Convert because json module cannot serialize numpy numbers
         order_quantity = int(order_policy(inventory_level))
-        # Convert because json module cannot serialize numpy numbers
-        new_price = float(pricing_policy(inventory_level))
-        print('Update price to', new_price)
 
         product = None
         if self.pending_order_id is None and order_quantity > 0:
@@ -80,8 +77,13 @@ class DynProgrammingMerchant:
             order = self.producer.receive_items(self.pending_order_id)
             self.pending_order_id = None
             product = order.product
+            inventory_level += product.amount
             self.fixed_order_cost = order.fixed_cost
             self.product_cost = order.unit_price
+
+        # Convert because json module cannot serialize numpy numbers
+        new_price = float(pricing_policy(inventory_level))
+        print('Update price to', new_price)
 
         if own_offers:
             # This merchant has at most one active offer

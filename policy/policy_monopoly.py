@@ -14,7 +14,7 @@ def create_policies(demand_distribution, product_cost, fixed_order_cost, holding
     selling_prices = np.arange(selling_price_low, selling_price_high + 1).reshape((1, 1, -1, 1))
     demand = np.arange(max_stock + 1).reshape((1, 1, 1, -1))
     probabilities = demand_distribution(demand, selling_prices)
-    sales = np.minimum(demand, remaining_stock + order_quantity)
+    sales = np.minimum(demand, remaining_stock)
     all_expected_profits = None
     difference = float('inf')
     iteration = 0

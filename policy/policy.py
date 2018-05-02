@@ -24,7 +24,7 @@ class PolicyOptimizer:
         self.expected_profits = np.zeros(max_stock + 1)
 
     def create_policies(self, demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
-                        market_situation, own_offer_id, max_iterations=10):
+                        market_situation, own_offer_id, max_iterations=5):
         if not demand_distribution:
             print('Use default policy')
             return default_order_policy, default_pricing_policy(self.selling_price_low, self.selling_price_high)
@@ -41,7 +41,7 @@ class PolicyOptimizer:
             order_policy, pricing_policy, self.expected_profits = \
                 policy_optimization(demand_distribution, product_cost, fixed_order_cost, holding_cost_per_interval,
                                     self.selling_prices, self.expected_profits, self.remaining_stock,
-                                    self.order_quantity, self.demand, market_situation, own_offer_id, iterations=20)
+                                    self.order_quantity, self.demand, market_situation, own_offer_id, iterations=40)
 
             #print(order_policy)
             #print(pricing_policy)
