@@ -10,7 +10,7 @@ from policy.demand_learning import demand_learning
 
 
 class DynProgrammingMerchant:
-    def __init__(self, name: str, port: int, marketplace_url: str, producer_url: str):
+    def __init__(self, name: str, port: int, marketplace_url: str, producer_url: str, kafka_url: str):
         self.server_thread = self.start_server(port)
 
         self.marketplace = Marketplace(host=marketplace_url)
@@ -20,13 +20,15 @@ class DynProgrammingMerchant:
         self.token = response.merchant_token
         self.marketplace = Marketplace(self.token, marketplace_url)
         self.producer = Producer(self.token, producer_url)
-        self.kafka_reverse_proxy = Kafka(self.token)
+        self.kafka_reverse_proxy = Kafka(self.token, kafka_url)
 
         self.UPDATE_INTERVAL_IN_SECONDS = 4
         self.MINUTES_BETWEEN_TRAININGS = 1
 
-        # only one product can be bought in this scenario
-        product_info = self.producer.get_products()[0]
+        products = self.producer.get_products()
+        assert len(products) == 1, "This merchant was built considering exactly one product. Change the number of available products in the producer."
+        product_info = products[0]
+
         self.fixed_order_cost = product_info.fixed_order_cost
         self.product_cost = product_info.price
         holding_cost_per_unit_per_minute = self.marketplace.holding_cost_rate(self.merchant_id)
@@ -137,10 +139,11 @@ def parse_arguments():
     parser.add_argument('--port', type=int, required=True, help='port to bind flask App to')
     parser.add_argument('--marketplace', type=str, default=Marketplace.DEFAULT_URL, help='Marketplace URL')
     parser.add_argument('--producer', type=str, default=Producer.DEFAULT_URL, help='Producer URL')
+    parser.add_argument('--kafka', type=str, default=Kafka.DEFAULT_URL, help='Kafka Reverse Proxy URL')
     return parser.parse_args()
 
 
 if __name__ == '__main__':
     args = parse_arguments()
-    merchant = DynProgrammingMerchant(args.name, args.port, args.marketplace, args.producer)
+    merchant = DynProgrammingMerchant(args.name, args.port, args.marketplace, args.producer, args.kafka)
     merchant.run()
