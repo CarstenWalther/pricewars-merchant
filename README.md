@@ -10,13 +10,13 @@ The first scenario (scenario 0) is in a restricted environment.
 Following scenarios become increasingly realistic but also require more sophisticated solutions.
 The merchant implementation for each scenario can be found in the corresponding file (`merchant_scenarioX.py`).
 
-|               | Ordering      | Demand Learning | Pricing  | Competition |
-| ------------- |:-------------:|:---------------:|:--------:|:-----------:|
-| Scenario 0    | ✅            | ❎              | ❎       | ❎          |
-| Scenario 1    | ✅            | ❎              | ❎       | ❎          |
-| Scenario 2    | ✅            | ✅              | ❎       | ❎          |
-| Scenario 3    | ✅            | ✅              | ✅       | ❎          |
-| Scenario 4    | ✅            | ✅              | ✅       | ✅          |
+|               | Ordering           | Demand Learning    | Pricing           | Competition        |
+| ------------- |:------------------:|:------------------:|:-----------------:|:------------------:|
+| Scenario 0    | :heavy_check_mark: | ❎                 | ❎                 | ❎                 |
+| Scenario 1    | :heavy_check_mark: | ❎                 | ❎                 | ❎                 |
+| Scenario 2    | :heavy_check_mark: | :heavy_check_mark: | ❎                 | ❎                 |
+| Scenario 3    | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | ❎                 |
+| Scenario 4    | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: | :heavy_check_mark: |
 
 The demand in scenario 0 is deterministic and known to the merchant.
 In scenario 1, the demand is stochatic and the demand distribution is known.
