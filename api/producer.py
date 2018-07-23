@@ -7,7 +7,7 @@ from models import Order
 
 
 class Producer(PricewarsBaseApi):
-    DEFAULT_URL = 'http://producer:3050'
+    DEFAULT_URL = 'http://localhost:3050'
 
     def __init__(self, token: str, host: str = DEFAULT_URL, debug: bool = False):
         super().__init__(token, host, debug)

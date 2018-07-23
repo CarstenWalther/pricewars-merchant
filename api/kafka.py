@@ -5,7 +5,7 @@ from api.pricewars_base_api import PricewarsBaseApi
 
 
 class Kafka(PricewarsBaseApi):
-    DEFAULT_URL = 'http://kafka-reverse-proxy:8001'
+    DEFAULT_URL = 'http://localhost:8001'
 
     def __init__(self, token: str, host: str = DEFAULT_URL, debug: bool = False):
         super().__init__(token, host, debug)
