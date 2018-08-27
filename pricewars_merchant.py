@@ -28,7 +28,8 @@ class PricewarsMerchant(metaclass=ABCMeta):
         }
         self.state = 'running'
         self.server_thread = self.start_server(port)
-        self.inventory_level = 0
+        self.number_offered_items = 0
+        self.products_not_offered = []
 
         if not token:
             token = self.load_tokens().get(merchant_name)
@@ -87,7 +88,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
 
         start_time = time.time()
         update_counter = 1
-        self.restock()
+        self.open_new_offer()
         while True:
             interval = self.settings['update interval']
             lower_bound = self.settings['interval_lower_bound_relative']
@@ -98,7 +99,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
 
             # determine required sleep length for next interval
             rdm_interval_length = random.uniform(interval * lower_bound, interval * upper_bound)
-            # calculate next expected update timespamp (might be in the 
+            # calculate next expected update timestamp (might be in the
             # past in cases where the marketplace blocked for some time)
             next_update_ts = start_time + interval * (update_counter - 1) + rdm_interval_length
             sleep_time = next_update_ts - time.time()
@@ -125,8 +126,14 @@ class PricewarsMerchant(metaclass=ABCMeta):
 
     def restock(self):
         order = self.producer.order(self.settings['restock limit'])
-        self.inventory_level += order.product.amount
-        product = order.product
+        return order.products
+
+    def open_new_offer(self) -> None:
+        if not self.products_not_offered:
+            self.products_not_offered = self.restock()
+
+        product = self.products_not_offered.pop()
+        self.number_offered_items += product.amount
         shipping_time = {
             'standard': self.settings['shipping'],
             'prime': self.settings['primeShipping']
@@ -142,9 +149,9 @@ class PricewarsMerchant(metaclass=ABCMeta):
         This method is called whenever the merchant sells a product.
         """
         print('Product sold')
-        self.inventory_level -= offer.amount_sold
-        if self.inventory_level == 0:
-            self.restock()
+        self.number_offered_items -= offer.amount_sold
+        if self.number_offered_items == 0:
+            self.open_new_offer()
 
     def start(self):
         self.state = 'running'
