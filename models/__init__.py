@@ -1,6 +1,7 @@
 from .Offer import Offer
 from .SoldOffer import SoldOffer
-from .Product import Product, ProductInfo
+from .Product import Product
+from .ProductInfo import ProductInfo
 from .Order import Order
 from .MerchantRegisterResponse import MerchantRegisterResponse
 
