@@ -6,11 +6,11 @@ from pricewars_merchant import PricewarsMerchant
 
 
 class CheapestStrategy:
-    name = 'Cheapest'
+    name = 'cheapest'
 
     settings = {
-        'price decrement': 0.05,
-        'default price': 30
+        'price_decrement': 0.05,
+        'default_price': 30
     }
 
     @staticmethod
@@ -20,19 +20,19 @@ class CheapestStrategy:
                                       offer.product_id == product_id and
                                       offer.merchant_id != merchant.merchant_id]
         if not relevant_competitor_offers:
-            return merchant.settings['default price']
+            return merchant.settings['default_price']
 
         cheapest_offer = min(relevant_competitor_offers, key=lambda offer: offer.price)
-        return cheapest_offer.price - merchant.settings['price decrement']
+        return cheapest_offer.price - merchant.settings['price_decrement']
 
 
 class TwoBoundStrategy:
-    name = 'Two Bound'
+    name = 'two_bound'
 
     settings = {
-        'price decrement': 0.10,
-        'upper price bound': 30,
-        'lower price bound': 20
+        'price_decrement': 0.10,
+        'upper_price_bound': 30,
+        'lower_price_bound': 20
     }
 
     @staticmethod
@@ -42,14 +42,14 @@ class TwoBoundStrategy:
                                       offer.product_id == product_id and
                                       offer.merchant_id != merchant.merchant_id]
         if not relevant_competitor_offers:
-            return merchant.settings['upper price bound']
+            return merchant.settings['upper_price_bound']
 
         cheapest_offer = min(relevant_competitor_offers, key=lambda offer: offer.price)
-        if cheapest_offer.price <= merchant.settings['lower price bound'] or \
-                cheapest_offer.price > merchant.settings['upper price bound']:
-            return merchant.settings['upper price bound']
+        if cheapest_offer.price <= merchant.settings['lower_price_bound'] or \
+                cheapest_offer.price > merchant.settings['upper_price_bound']:
+            return merchant.settings['upper_price_bound']
         else:
-            return cheapest_offer.price - merchant.settings['price decrement']
+            return cheapest_offer.price - merchant.settings['price_decrement']
 
 
 class Merchant(PricewarsMerchant):

@@ -17,14 +17,14 @@ class PricewarsMerchant(metaclass=ABCMeta):
 
     def __init__(self, port: int, token: Optional[str], marketplace_url: str, producer_url: str, merchant_name: str):
         self.settings = {
-            'update interval': 5,
+            'update_interval': 5,
             # it could make sense to choose larger upper bounds to
             # ensure that the merchants to not exceed their quota.
             'interval_lower_bound_relative': 0.7,
             'interval_upper_bound_relative': 1.35,
-            'restock limit': 20,
+            'restock_limit': 20,
             'shipping': 5,
-            'primeShipping': 1,
+            'prime_shipping': 1,
         }
         self.state = 'running'
         self.server_thread = self.start_server(port)
@@ -61,7 +61,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
         # (ii) posting updates, (iii) getting products, (iv) posting
         # new products. As restocking should not occur too often,
         # we use a rather conservative factor of 2.5x factor.
-        self.settings['update interval'] = (1 / req_limit) * 2.5
+        self.settings['update_interval'] = (1 / req_limit) * 2.5
 
         self.producer = Producer(self.token, host=producer_url)
 
@@ -90,7 +90,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
         update_counter = 1
         self.open_new_offer()
         while True:
-            interval = self.settings['update interval']
+            interval = self.settings['update_interval']
             lower_bound = self.settings['interval_lower_bound_relative']
             upper_bound = self.settings['interval_upper_bound_relative']
 
@@ -125,7 +125,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
             self.marketplace.update_offer(offer)
 
     def restock(self):
-        order = self.producer.order(self.settings['restock limit'])
+        order = self.producer.order(self.settings['restock_limit'])
         return order.products
 
     def open_new_offer(self) -> None:
@@ -136,7 +136,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
         self.number_offered_items += product.quantity
         shipping_time = {
             'standard': self.settings['shipping'],
-            'prime': self.settings['primeShipping']
+            'prime': self.settings['prime_shipping']
         }
         offer = Offer.from_product(product, 0, shipping_time)
         offer.merchant_id = self.merchant_id
