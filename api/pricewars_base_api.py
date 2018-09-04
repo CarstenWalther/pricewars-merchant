@@ -1,4 +1,3 @@
-import sys
 from time import time, sleep
 from typing import Optional
 from urllib.parse import urljoin

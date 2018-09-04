@@ -8,8 +8,8 @@ class SoldOffer(PricewarsObject):
         self.uid = uid
         self.product_id = product_id
         self.quality = quality
-        self.amount_sold = amount_sold
+        self.quantity_sold = amount_sold
         self.price_sold = price_sold
         self.price = price
         self.merchant_id = merchant_id
-        self.amount = amount
+        self.quantity = amount

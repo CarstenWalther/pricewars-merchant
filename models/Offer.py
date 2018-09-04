@@ -24,7 +24,7 @@ class Offer(PricewarsObject):
             uid=product.uid,
             product_id=product.product_id,
             quality=product.quality,
-            amount=product.amount,
+            amount=product.quantity,
             price=price,
             shipping_time=shipping_time,
             prime=prime,

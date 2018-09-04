@@ -133,7 +133,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
             self.products_not_offered = self.restock()
 
         product = self.products_not_offered.pop()
-        self.number_offered_items += product.amount
+        self.number_offered_items += product.quantity
         shipping_time = {
             'standard': self.settings['shipping'],
             'prime': self.settings['primeShipping']
@@ -149,7 +149,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
         This method is called whenever the merchant sells a product.
         """
         print('Product sold')
-        self.number_offered_items -= offer.amount_sold
+        self.number_offered_items -= offer.quantity_sold
         if self.number_offered_items == 0:
             self.open_new_offer()
 

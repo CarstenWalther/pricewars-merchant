@@ -18,4 +18,4 @@ class Order(PricewarsObject):
         self.unit_price = unit_price
         self.stock = stock
         self.left_in_stock = left_in_stock
-        self.products = Product.from_list(products)
+        self.products: List[Product] = Product.from_list(products)

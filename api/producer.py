@@ -11,8 +11,8 @@ class Producer(PricewarsBaseApi):
     def __init__(self, token: str, host: str = DEFAULT_URL, debug: bool = False):
         super().__init__(token, host, debug)
 
-    def order(self, amount) -> Order:
-        r = self.request('post', 'orders', data={'amount': amount})
+    def order(self, quantity) -> Order:
+        r = self.request('post', 'orders', data={'quantity': quantity})
         return Order.from_dict(r.json())
 
     def get_products_info(self) -> List[ProductInfo]:
