@@ -1,5 +1,7 @@
+websockets
 Flask
 requests
 flask-cors
 pandas
 eventlet
+asyncio

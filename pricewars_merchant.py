@@ -1,3 +1,4 @@
+import asyncio
 import json
 from abc import ABCMeta, abstractmethod
 import time
@@ -10,6 +11,7 @@ from typing import Optional, List
 from api import Marketplace, Producer
 from server import MerchantServer
 from models import SoldOffer, Offer
+from event_listener import sales_event_listener
 
 
 class PricewarsMerchant(metaclass=ABCMeta):
@@ -82,8 +84,12 @@ class PricewarsMerchant(metaclass=ABCMeta):
         return base64.b64encode(hashlib.sha256(token.encode('utf-8')).digest()).decode('utf-8')
 
     def run(self):
+        asyncio.get_event_loop().run_until_complete(
+            asyncio.gather(self.update_offers_loop(), sales_event_listener(self.token, self.sold_offer_test)))
+
+    async def update_offers_loop(self) -> None:
         # initial random sleep to avoid starting merchants in sync
-        time.sleep(2 * random.random())
+        await asyncio.sleep(2 * random.random())
 
         start_time = time.time()
         update_counter = 1
@@ -98,7 +104,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
 
             # determine required sleep length for next interval
             rdm_interval_length = random.uniform(interval * lower_bound, interval * upper_bound)
-            # calculate next expected update timespamp (might be in the 
+            # calculate next expected update timespamp (might be in the
             # past in cases where the marketplace blocked for some time)
             next_update_ts = start_time + interval * (update_counter - 1) + rdm_interval_length
             sleep_time = next_update_ts - time.time()
@@ -108,7 +114,7 @@ class PricewarsMerchant(metaclass=ABCMeta):
                 # but try not to DDoS the marketplace
                 sleep_time = random.uniform(interval * 0.05, interval * 0.2)
 
-            time.sleep(sleep_time)
+            await asyncio.sleep(sleep_time)
             update_counter += 1
 
     def update_offers(self) -> None:
@@ -136,6 +142,12 @@ class PricewarsMerchant(metaclass=ABCMeta):
         market_situation = self.marketplace.get_offers()
         offer.price = self.calculate_price(offer.offer_id, market_situation + [offer])
         self.marketplace.add_offer(offer)
+
+    async def sold_offer_test(self, message) -> None:
+        """
+        This method is called whenever the merchant sells a product.
+        """
+        print('got event:', message)
 
     def sold_offer(self, offer: SoldOffer) -> None:
         """
